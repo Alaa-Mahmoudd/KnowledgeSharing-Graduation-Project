@@ -10,27 +10,29 @@ import KnowledgeCorner from "./components/KnowledgeCorner/KnowledgeCorner";
 import Chatbot from "./components/Chatbot/Chatbot";
 import Register from "./components/Register/Register.jsx";
 import Login from "./components/Login/Login.jsx";
+import { AuthProvider } from "./components/Context/AuthContext";
 
 let router = createBrowserRouter([
   {
     path: "",
-    element: <Layout />,
+    element: (
+      <AuthProvider>
+        <Layout />
+      </AuthProvider>
+    ),
     children: [
       {
         index: true,
         element: <Home />,
       },
-
       {
         path: "about",
         element: <About />,
       },
-
       {
         path: "profile",
         element: <Profile />,
       },
-
       {
         path: "*",
         element: <NotFound />,
@@ -58,10 +60,11 @@ let router = createBrowserRouter([
     ],
   },
 ]);
+
 function App() {
   return (
     <div className="bg-[#E3ECE7]">
-      <RouterProvider router={router}></RouterProvider>;
+      <RouterProvider router={router} />
     </div>
   );
 }
