@@ -3,7 +3,17 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { Link } from "react-router-dom";
 import { FaCircleUser } from "react-icons/fa6";
 import { IoHome } from "react-icons/io5";
+import { useAuth } from "../../Context/AuthContext";
+
 export default function Navbar() {
+  const { isAuthenticated, handleLogout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogoutClick = () => {
+    handleLogout();
+    navigate("/login");
+  };
+
   return (
     <div>
       <nav className="border-b">
@@ -23,37 +33,50 @@ export default function Navbar() {
               >
                 Home
               </NavLink>
-              <NavLink
-                to={"/login"}
-                className="text-md text-black font-normal hover:text-[#7A9EB8]"
-              >
-                Login
-              </NavLink>
-              <NavLink
-                to={"/register"}
-                className="text-md text-black font-normal hover:text-[#7A9EB8]"
-              >
-                Register
-              </NavLink>
-              <NavLink
-                to={"/knowledgeCorner"}
-                className="text-md text-black font-normal hover:text-[#7A9EB8]"
-              >
-                Post
-              </NavLink>
-
-              <NavLink
-                to={"/profile"}
-                className="text-md text-black font-normal hover:text-[#7A9EB8]"
-              >
-                Profile
-              </NavLink>
-              <NavLink
-                to={"/dashboard"}
-                className="text-md text-black font-normal hover:text-[#7A9EB8]"
-              >
-                Dashboard
-              </NavLink>
+              
+              {!isAuthenticated ? (
+                <>
+                  <NavLink
+                    to={"/login"}
+                    className="text-md text-black font-normal hover:text-[#7A9EB8]"
+                  >
+                    Login
+                  </NavLink>
+                  <NavLink
+                    to={"/register"}
+                    className="text-md text-black font-normal hover:text-[#7A9EB8]"
+                  >
+                    Register
+                  </NavLink>
+                </>
+              ) : (
+                <>
+                  <NavLink
+                    to={"/knowledgeCorner"}
+                    className="text-md text-black font-normal hover:text-[#7A9EB8]"
+                  >
+                    Post
+                  </NavLink>
+                  <NavLink
+                    to={"/profile"}
+                    className="text-md text-black font-normal hover:text-[#7A9EB8]"
+                  >
+                    Profile
+                  </NavLink>
+                  <NavLink
+                    to={"/dashboard"}
+                    className="text-md text-black font-normal hover:text-[#7A9EB8]"
+                  >
+                    Dashboard
+                  </NavLink>
+                  <button
+                    onClick={handleLogoutClick}
+                    className="text-md text-black font-normal hover:text-[#7A9EB8]"
+                  >
+                    Logout
+                  </button>
+                </>
+              )}
             </ul>
           </div>
         </div>
