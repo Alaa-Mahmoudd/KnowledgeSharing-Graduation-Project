@@ -6,20 +6,34 @@ import {
   FaComment,
   FaBookmark,
   FaStar,
+  FaTrash,
+  FaEdit,
+  FaHeart,
 } from "react-icons/fa";
 import { ThreeDots } from "react-loader-spinner";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import { Link } from "react-router-dom";
 
 export default function KnowledgeCorner() {
   const [posts, setPosts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showForm, setShowForm] = useState(false);
-
-  // New Post States
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [files, setFiles] = useState([]);
+  const [isPosting, setIsPosting] = useState(false);
+  const [editingPostId, setEditingPostId] = useState(null);
 
+  // States for loading each interaction
+  const [isLoadingLike, setIsLoadingLike] = useState(false);
+  const [isLoadingSave, setIsLoadingSave] = useState(false);
+  const [isLoadingRate, setIsLoadingRate] = useState(false);
+  // States to store like count and ratings count
+  const [likeCounts, setLikeCounts] = useState({});
+  const [ratingCounts, setRatingCounts] = useState({});
+  // Fetch all posts
   const getAllPosts = async () => {
     try {
       const { data } = await axios.get(
@@ -27,40 +41,15 @@ export default function KnowledgeCorner() {
       );
       setPosts(data.posts || []);
       setIsLoading(false);
+      // Fetch like and rating counts after fetching posts
+      data.posts.forEach((post) => {
+        getLikesCount(post._id);
+        getRatingsCount(post._id);
+      });
     } catch (error) {
-      console.error("Error fetching Posts:", error);
-      setError("Failed to load Posts. Please try again later.");
+      console.error("Error fetching posts:", error);
+      setError("Failed to load posts. Please try again later.");
       setIsLoading(false);
-    }
-  };
-
-  const handleAddPost = async () => {
-    const formData = new FormData();
-    formData.append("title", title);
-    formData.append("content", content);
-    for (let i = 0; i < files.length; i++) {
-      formData.append("files", files[i]);
-    }
-
-    try {
-      const { data } = await axios.post(
-        "https://knowledge-sharing-pied.vercel.app/post/add",
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        }
-      );
-      // Reset form and refresh posts
-      setShowForm(false);
-      setTitle("");
-      setContent("");
-      setFiles([]);
-      getAllPosts();
-    } catch (error) {
-      console.error("Error adding post:", error);
-      alert("Error adding post. Please try again.");
     }
   };
 
@@ -68,6 +57,236 @@ export default function KnowledgeCorner() {
     getAllPosts();
   }, []);
 
+  // Handle post creation
+  const handleCreatePost = async () => {
+    if (!title || !content) {
+      toast.error("Title and Content are required!");
+      return;
+    }
+    setIsPosting(true);
+    const formData = new FormData();
+    formData.append("title", title);
+    formData.append("content", content);
+    Array.from(files).forEach((file) => formData.append("files", file));
+
+    const token = localStorage.getItem("token");
+    try {
+      const response = await axios.post(
+        "https://knowledge-sharing-pied.vercel.app/post/add",
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+            token: `noteApp__${token}`,
+          },
+        }
+      );
+      toast.success("Post created successfully!");
+      await getAllPosts();
+      setShowForm(false);
+      setTitle("");
+      setContent("");
+      setFiles([]);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (error) {
+      toast.error("Failed to create post. Try again.");
+    } finally {
+      setIsPosting(false);
+    }
+  };
+
+  // Handle post update
+  const handleUpdatePost = async () => {
+    if (!title || !content) {
+      toast.error("Title and Content are required!");
+      return;
+    }
+    setIsPosting(true);
+    const formData = new FormData();
+    formData.append("title", title);
+    formData.append("content", content);
+    Array.from(files).forEach((file) => formData.append("files", file));
+
+    const token = localStorage.getItem("token");
+    try {
+      const response = await axios.put(
+        `https://knowledge-sharing-pied.vercel.app/post/update/${editingPostId}`,
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+            token: `noteApp__${token}`,
+          },
+        }
+      );
+      toast.success("Post updated successfully!");
+      await getAllPosts();
+      // Update the post in the list
+      setPosts((prevPosts) =>
+        prevPosts.map((post) =>
+          post._id === editingPostId ? { ...post, ...response.data.post } : post
+        )
+      );
+
+      setEditingPostId(null);
+      setShowForm(false);
+      setTitle("");
+      setContent("");
+      setFiles([]);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (error) {
+      toast.error("Failed to update post. Try again.");
+    } finally {
+      setIsPosting(false);
+    }
+  };
+
+  // Handle delete post (DELETE)
+  const handleDeletePost = async (postId) => {
+    const token = localStorage.getItem("token");
+    try {
+      await axios.delete(
+        `https://knowledge-sharing-pied.vercel.app/post/delete/${postId}`,
+        {
+          headers: {
+            token: `noteApp__${token}`,
+          },
+        }
+      );
+      toast.success("Post deleted successfully!");
+      await getAllPosts();
+      setPosts((prevPosts) => prevPosts.filter((post) => post._id !== postId));
+    } catch (error) {
+      toast.error("Failed to delete post. Try again.");
+    }
+  };
+
+  // interactions
+  // Handle Like Post
+  const handleLikePost = async (postId) => {
+    setIsLoadingLike(true);
+    const token = localStorage.getItem("token");
+
+    if (likeCounts[postId] && likeCounts[postId] > 0) {
+      toast.info("You already liked this post.");
+      setIsLoadingLike(false);
+      return;
+    }
+
+    try {
+      await axios.post(
+        `https://knowledge-sharing-pied.vercel.app/interaction/${postId}/like`,
+        {},
+        {
+          headers: {
+            token: `noteApp__${token}`,
+          },
+        }
+      );
+      toast.success("Post liked!");
+
+      setLikeCounts((prevCounts) => ({
+        ...prevCounts,
+        [postId]: (prevCounts[postId] || 0) + 1,
+      }));
+    } catch (error) {
+      console.error("Error liking post:", error);
+      toast.error("Failed to like post.");
+    } finally {
+      setIsLoadingLike(false);
+    }
+  };
+
+  // Handle Save Post
+  const handleSavePost = async (postId) => {
+    setIsLoadingSave(true);
+    const token = localStorage.getItem("token");
+    try {
+      await axios.post(
+        `https://knowledge-sharing-pied.vercel.app/interaction/${postId}/save`,
+        {},
+        {
+          headers: {
+            token: `noteApp__${token}`,
+          },
+        }
+      );
+      toast.success("Post saved!");
+      await getAllPosts();
+    } catch (error) {
+      console.error("Error saving post:", error);
+      toast.error("Failed to save post.");
+    } finally {
+      setIsLoadingSave(false);
+    }
+  };
+
+  // Handle Rate Post
+  const handleRatePost = async (postId, rating) => {
+    setIsLoadingRate(true);
+    const token = localStorage.getItem("token");
+
+    if (ratingCounts[postId] && ratingCounts[postId] > 0) {
+      toast.info("You already rated this post.");
+      setIsLoadingRate(false);
+      return;
+    }
+
+    try {
+      await axios.post(
+        `https://knowledge-sharing-pied.vercel.app/interaction/${postId}/rate`,
+        { rating },
+        {
+          headers: {
+            token: `noteApp__${token}`,
+          },
+        }
+      );
+
+      // await getRatingsCount(postId);
+      toast.success("Post rated!");
+      setRatingCounts((prevRatings) => ({
+        ...prevRatings,
+        [postId]: (prevRatings[postId] || 0) + 1,
+      }));
+    } catch (error) {
+      toast.error("Failed to rate post.");
+    } finally {
+      setIsLoadingRate(false);
+    }
+  };
+
+  // Fetch like count for a post
+  const getLikesCount = async (postId) => {
+    try {
+      const response = await axios.get(
+        `https://knowledge-sharing-pied.vercel.app/interaction/${postId}/likes_count`
+      );
+      setLikeCounts((prevCounts) => ({
+        ...prevCounts,
+        [postId]: response.data.likesCount,
+      }));
+    } catch (error) {
+      console.error("Error fetching like count:", error);
+    }
+  };
+
+  // Fetch ratings count for a post
+  const getRatingsCount = async (postId) => {
+    try {
+      const response = await axios.get(
+        `https://knowledge-sharing-pied.vercel.app/interaction/${postId}/ratings_count`
+      );
+      setRatingCounts((prevCounts) => ({
+        ...prevCounts,
+        [postId]: response.data.ratingCounts,
+      }));
+    } catch (error) {
+      console.error("Error fetching ratings count:", error);
+    }
+  };
+
+  // Loading state
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -76,6 +295,7 @@ export default function KnowledgeCorner() {
     );
   }
 
+  // Error state
   if (error) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -86,8 +306,9 @@ export default function KnowledgeCorner() {
 
   return (
     <div className="w-full px-4 mt-6 relative">
+      <ToastContainer />
       {/* Open Post Modal */}
-      <div className="bg-[#E3ECE7] p-4 max-w-4xl mx-auto mb-10 ">
+      <div className="bg-[#E3ECE7] p-4 max-w-4xl mx-auto mb-10">
         <input
           type="text"
           placeholder="Write Your Post ...."
@@ -102,7 +323,7 @@ export default function KnowledgeCorner() {
         <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/40">
           <div className="bg-white rounded-2xl shadow-lg w-full max-w-xl p-6 relative">
             <h2 className="text-xl font-semibold mb-4 text-center text-gray-800">
-              Create New Post
+              {editingPostId ? "Update Post" : "Create New Post"}
             </h2>
             <form>
               <input
@@ -128,15 +349,27 @@ export default function KnowledgeCorner() {
               <div className="flex justify-end">
                 <button
                   type="button"
-                  className="bg-blue-500 text-white px-6 py-2 rounded-full shadow hover:bg-blue-600 transition"
-                  onClick={handleAddPost}
+                  onClick={editingPostId ? handleUpdatePost : handleCreatePost}
+                  disabled={isPosting}
+                  className={`bg-blue-500 text-white px-6 py-2 rounded-full shadow hover:bg-blue-600 transition ${
+                    isPosting ? "opacity-50 cursor-not-allowed" : ""
+                  }`}
                 >
-                  Post
+                  {isPosting
+                    ? editingPostId
+                      ? "Updating..."
+                      : "Posting..."
+                    : editingPostId
+                    ? "Update"
+                    : "Post"}
                 </button>
               </div>
             </form>
             <button
-              onClick={() => setShowForm(false)}
+              onClick={() => {
+                setEditingPostId(null);
+                setShowForm(false);
+              }}
               className="absolute top-3 right-3 text-gray-500 hover:text-red-500 text-lg"
             >
               ×
@@ -147,53 +380,133 @@ export default function KnowledgeCorner() {
 
       {/* Posts List */}
       <div className={`max-w-4xl mx-auto ${showForm ? "blur-sm" : ""}`}>
-        {posts.map((post) => (
-          <div
-            key={post._id}
-            className="bg-[#E3ECE7] p-4 rounded-lg shadow-md mb-4"
-          >
-            <h2 className="text-lg font-semibold capitalize">{post.title}</h2>
-            <p className="text-gray-600">By {post.author?.name || "Unknown"}</p>
-            <p className="mt-1 text-gray-500 text-sm">
-              {post.description || ""}
-            </p>
-            <p className="mt-2 text-gray-700">{post.content}</p>
+        {posts.length > 0 ? (
+          posts.map((post) =>
+            post && post.title ? (
+              <div
+                key={post._id}
+                className="bg-[#E3ECE7] p-4 rounded-lg shadow-md mb-4"
+              >
+                <Link to={`/knowledgeCorner/${post._id}`}>
+                  <h2 className="text-lg font-semibold capitalize">
+                    {post.title}
+                  </h2>
 
-            {post.files?.urls?.length > 0 && (
-              <div className="mt-3">
-                {post.files.urls.map((file, idx) => (
-                  <a
-                    key={idx}
-                    href={file.secure_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 underline text-sm block"
-                  >
-                    📎 View Attachment
-                  </a>
-                ))}
+                  <p className="text-gray-600">
+                    By {post.author?.name || "Unknown"}
+                  </p>
+                  <p className="mt-1 text-gray-500 text-sm">
+                    {post.description || ""}
+                  </p>
+                  <p className="mt-2 text-gray-700">{post.content}</p>
+
+                  {post.files && post.files.length > 0 && (
+                    <div className="mt-4">
+                      <h4 className="text-sm font-medium text-gray-600">
+                        Attached Files
+                      </h4>
+                      <ul className="list-disc pl-5">
+                        {post.files.map((file, idx) => (
+                          <li key={idx}>
+                            <a
+                              href={file}
+                              className="text-blue-500"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              {file}
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </Link>
+                <div className="flex justify-between">
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => handleLikePost(post._id)}
+                      className="flex items-center space-x-1 text-red-500 hover:text-red-700 cursor-pointer"
+                      title="Like"
+                    >
+                      {isLoadingLike ? (
+                        <ThreeDots width="20" height="20" color="red" />
+                      ) : (
+                        <FaHeart />
+                      )}
+                      <span>{likeCounts[post._id] || 0}</span>
+                    </button>
+                    <button
+                      className="flex items-center space-x-1 text-blue-500 hover:text-blue-700 cursor-pointer"
+                      title="Comment"
+                    >
+                      <FaComment /> <span></span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        const userRating = prompt(
+                          "Rate this post from 1 to 5:"
+                        );
+                        const ratingValue = parseInt(userRating);
+                        if (ratingValue >= 1 && ratingValue <= 5) {
+                          handleRatePost(post._id, ratingValue);
+                        } else {
+                          toast.error(
+                            "Invalid rating. Please enter a number between 1 and 5."
+                          );
+                        }
+                      }}
+                      className="flex items-center space-x-1 text-yellow-500 hover:text-yellow-700 cursor-pointer"
+                      title="Rate"
+                    >
+                      {isLoadingRate ? (
+                        <ThreeDots width="20" height="20" color="yellow" />
+                      ) : (
+                        <FaStar />
+                      )}
+                      <span>{ratingCounts[post._id] || 0}</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleSavePost(post._id)}
+                      className="flex items-center space-x-1 text-gray-500 hover:text-gray-700 cursor-pointer"
+                      title="Save"
+                    >
+                      {isLoadingSave ? (
+                        <ThreeDots width="20" height="20" color="gray" />
+                      ) : (
+                        <FaBookmark />
+                      )}
+                    </button>
+                  </div>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => {
+                        setEditingPostId(post._id);
+                        setTitle(post.title);
+                        setContent(post.content);
+                        setShowForm(true);
+                      }}
+                      className="flex items-center space-x-1 text-green-500 hover:text-green-700 cursor-pointer"
+                      title="Edit"
+                    >
+                      <FaEdit />
+                    </button>
+                    <button
+                      onClick={() => handleDeletePost(post._id)}
+                      className="flex items-center space-x-1 text-red-500 hover:text-red-700 cursor-pointer"
+                      title="Delete"
+                    >
+                      <FaTrash />
+                    </button>
+                  </div>
+                </div>
               </div>
-            )}
-
-            <div className="flex items-center mt-4 gap-4 text-gray-600">
-              <span className="flex items-center gap-1 text-blue-500">
-                <FaRegThumbsUp /> {post.likes_count || 0}
-              </span>
-              <span className="flex items-center gap-1">
-                <FaComment /> {post.comments?.length || 0}
-              </span>
-              <span className="flex items-center gap-1">
-                <FaBookmark /> {post.saves_count || 0}
-              </span>
-              <span className="flex items-center gap-1">
-                <FaStar className="text-yellow-500" /> {post.ratings_count || 0}
-              </span>
-              <span className="text-sm text-gray-500">
-                {new Date(post.createdAt).toLocaleDateString()}
-              </span>
-            </div>
-          </div>
-        ))}
+            ) : null
+          )
+        ) : (
+          <p className="text-center">No posts available</p>
+        )}
       </div>
     </div>
   );

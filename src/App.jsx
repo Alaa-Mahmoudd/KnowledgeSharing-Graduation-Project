@@ -15,6 +15,8 @@ import { AuthProvider } from "./Context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute/ProtectedRoute.jsx";
 import ForgetPassword from "./components/ForgetPassword/ForgetPassword.jsx";
 import ResetPassword from "./components/ResetPassword/ResetPassword.jsx";
+import SpecPost from "./components/SpecPost/SpecPost.jsx";
+import SavedPosts from "./components/SavedPosts/SavedPosts.jsx";
 
 const router = createBrowserRouter([
   {
@@ -50,6 +52,14 @@ const router = createBrowserRouter([
         ),
       },
       {
+        path: "savedPosts",
+        element: (
+          <ProtectedRoute>
+            <SavedPosts />
+          </ProtectedRoute>
+        ),
+      },
+      {
         path: "knowledgeCorner",
         element: (
           <ProtectedRoute>
@@ -57,6 +67,15 @@ const router = createBrowserRouter([
           </ProtectedRoute>
         ),
       },
+      {
+        path: "knowledgeCorner/:id",
+        element: (
+          <ProtectedRoute>
+            <SpecPost />
+          </ProtectedRoute>
+        ),
+      },
+
       {
         path: "chatbot",
         element: (
@@ -80,7 +99,7 @@ const router = createBrowserRouter([
       {
         path: "reset-password",
         element: <ResetPassword />,
-      }
+      },
     ],
   },
 ]);
@@ -103,21 +122,21 @@ function App() {
         toastOptions={{
           duration: 3000,
           style: {
-            background: '#363636',
-            color: '#fff',
-            padding: '16px',
-            borderRadius: '8px',
+            background: "#363636",
+            color: "#fff",
+            padding: "16px",
+            borderRadius: "8px",
           },
           success: {
             duration: 3000,
             theme: {
-              primary: '#4aed88',
+              primary: "#4aed88",
             },
           },
           error: {
             duration: 3000,
             theme: {
-              primary: '#ff4b4b',
+              primary: "#ff4b4b",
             },
           },
         }}
