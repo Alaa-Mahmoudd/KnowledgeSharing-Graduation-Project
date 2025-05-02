@@ -3,14 +3,14 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { Link } from "react-router-dom";
 import { FaCircleUser } from "react-icons/fa6";
 import { IoHome } from "react-icons/io5";
-import { useAuth } from "../../Context/AuthContext";
+import { useUser } from "../../Context/UserContext";
 
 export default function Navbar() {
-  const { isAuthenticated, handleLogout } = useAuth();
+  const { user, clearUser } = useUser();
   const navigate = useNavigate();
 
   const handleLogoutClick = () => {
-    handleLogout();
+    clearUser();
     navigate("/login");
   };
 
@@ -28,13 +28,13 @@ export default function Navbar() {
           >
             <ul className="flex flex-col font-medium p-4 md:p-0 mt-4 border border-gray-100 rounded-lg md:space-x-8 rtl:space-x-reverse md:flex-row md:mt-0 md:border-0  ">
               <NavLink
-                to={"/"}
+                to={"/home"}
                 className="text-md text-black font-normal hover:text-[#7A9EB8]"
               >
                 Home
               </NavLink>
               
-              {!isAuthenticated ? (
+              {!user ? (
                 <>
                   <NavLink
                     to={"/login"}

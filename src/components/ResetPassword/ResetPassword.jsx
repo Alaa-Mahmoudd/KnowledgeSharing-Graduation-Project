@@ -3,8 +3,9 @@ import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import { Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import { Eye, EyeOff, ArrowLeft, Mail } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
 
 export default function ResetPassword() {
   const [loading, setLoading] = useState(false);
@@ -17,7 +18,6 @@ export default function ResetPassword() {
   useEffect(() => {
     const storedData = sessionStorage.getItem('resetPasswordData');
     if (!storedData) {
-      toast.error('Please start from the forgot password page');
       navigate('/forget-password');
       return;
     }
@@ -26,8 +26,6 @@ export default function ResetPassword() {
       const parsedData = JSON.parse(storedData);
       setResetData(parsedData);
     } catch (error) {
-      console.error('Error parsing reset data:', error);
-      toast.error('Invalid session data. Please try again.');
       navigate('/forget-password');
     }
   }, [navigate]);
@@ -36,7 +34,7 @@ export default function ResetPassword() {
     password: Yup.string()
       .min(8, 'Password must be at least 8 characters')
       .matches(
-        /^(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*])/,
+        /^(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&/*])/,
         'Password must contain at least one lowercase letter, one uppercase letter, and one special character'
       )
       .required('Password is required'),
@@ -56,7 +54,6 @@ export default function ResetPassword() {
         setLoading(true);
 
         if (!resetData) {
-          toast.error('Session expired. Please try again.');
           navigate('/forget-password');
           return;
         }
@@ -80,7 +77,6 @@ export default function ResetPassword() {
         const errorMessage = error.response?.data?.error || 'Something went wrong';
         toast.error(errorMessage);
 
-        // If the error is related to invalid code or session, redirect to forget password
         if (errorMessage.includes('code') || errorMessage.includes('session')) {
           sessionStorage.removeItem('resetPasswordData');
           navigate('/forget-password');
@@ -98,49 +94,115 @@ export default function ResetPassword() {
 
   if (!resetData) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <button
-          onClick={handleBackToForgetPassword}
-          className="flex items-center text-indigo-600 hover:text-indigo-500 mb-4"
-        >
-          <ArrowLeft className="h-5 w-5 mr-2" />
-          Back to Forgot Password
-        </button>
-
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-          Reset Your Password
-        </h2>
-        <p className="mt-2 text-center text-sm text-gray-600">
-          Enter your new password below
-        </p>
-        <p className="mt-1 text-center text-sm text-gray-500">
-          For: {resetData.email}
-        </p>
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+      {/* Floating bubbles background */}
+      <div className="absolute inset-0 overflow-hidden">
+        {[...Array(10)].map((_, i) => (
+          <motion.div
+            key={i}
+            initial={{ y: 0, x: Math.random() * 100 }}
+            animate={{
+              y: [0, Math.random() * 100 - 50, 0],
+              x: [Math.random() * 100, Math.random() * 100 - 50, Math.random() * 100]
+            }}
+            transition={{
+              duration: 15 + Math.random() * 20,
+              repeat: Infinity,
+              repeatType: "reverse",
+              ease: "easeInOut"
+            }}
+            className={`absolute rounded-full opacity-10 ${i % 2 ? 'bg-indigo-500' : 'bg-purple-500'}`}
+            style={{
+              width: `${50 + Math.random() * 100}px`,
+              height: `${50 + Math.random() * 100}px`,
+              top: `${Math.random() * 100}%`,
+              left: `${Math.random() * 100}%`,
+            }}
+          />
+        ))}
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-          <form className="space-y-6" onSubmit={formik.handleSubmit}>
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                New Password
-              </label>
-              <div className="mt-1">
-                <div className="relative">
+      <div className="relative z-10 sm:mx-auto sm:w-full sm:max-w-md">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <button
+            onClick={handleBackToForgetPassword}
+            className="cursor-pointer flex items-center text-indigo-600 hover:text-indigo-500 mb-6 group"
+          >
+            <motion.div
+              whileHover={{ x: -3 }}
+              className="flex items-center"
+            >
+              <ArrowLeft className="h-5 w-5 mr-2 group-hover:text-indigo-700 transition-colors" />
+              <span>Back to Forgot Password</span>
+            </motion.div>
+          </button>
+
+          <div className="bg-white bg-opacity-80 backdrop-blur-md py-8 px-6 shadow-lg sm:rounded-xl sm:px-10 border border-white border-opacity-30">
+            <div className="text-center">
+              <motion.div
+                initial={{ scale: 0.9 }}
+                animate={{ scale: 1 }}
+                className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-indigo-100 mb-4"
+              >
+                <Mail className="h-6 w-6 text-indigo-600" />
+              </motion.div>
+
+              <motion.h2
+                initial={{ y: -10, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.2 }}
+                className="text-3xl font-bold text-gray-900 mb-2"
+              >
+                Reset Your Password
+              </motion.h2>
+
+              <motion.p
+                initial={{ y: -5, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.3 }}
+                className="text-sm text-gray-600 mb-6"
+              >
+                Enter your new password below
+              </motion.p>
+
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.4 }}
+                className="flex items-center justify-center bg-indigo-50 rounded-lg py-2 px-4 mb-6"
+              >
+                <span className="text-indigo-700 font-medium">{resetData.email}</span>
+              </motion.div>
+            </div>
+
+            <form className="space-y-6" onSubmit={formik.handleSubmit}>
+              {/* New Password Field */}
+              <motion.div
+                initial={{ x: -20, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ delay: 0.5 }}
+              >
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                  New Password
+                </label>
+                <div className="mt-1 relative">
                   <input
                     id="password"
                     name="password"
                     type={showPassword ? "text" : "password"}
                     {...formik.getFieldProps('password')}
-                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm pr-10"
+                    className={`block w-full px-4 py-3 rounded-xl bg-white bg-opacity-70 backdrop-blur-sm ${formik.touched.password && formik.errors.password ? 'border-red-500' : 'border-gray-200'} focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-300 shadow-sm pr-12`}
                     placeholder="Enter new password"
                   />
                   <button
@@ -149,30 +211,39 @@ export default function ResetPassword() {
                     className="absolute inset-y-0 right-0 pr-3 flex items-center"
                   >
                     {showPassword ? (
-                      <EyeOff className="h-5 w-5 text-gray-400" />
+                      <EyeOff className="h-5 w-5 text-gray-400 hover:text-indigo-600 transition-colors" />
                     ) : (
-                      <Eye className="h-5 w-5 text-gray-400" />
+                      <Eye className="h-5 w-5 text-gray-400 hover:text-indigo-600 transition-colors" />
                     )}
                   </button>
                 </div>
                 {formik.touched.password && formik.errors.password && (
-                  <p className="mt-2 text-sm text-red-600">{formik.errors.password}</p>
+                  <motion.p
+                    initial={{ y: -5, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    className="mt-2 text-sm text-red-600"
+                  >
+                    {formik.errors.password}
+                  </motion.p>
                 )}
-              </div>
-            </div>
+              </motion.div>
 
-            <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
-                Confirm New Password
-              </label>
-              <div className="mt-1">
-                <div className="relative">
+              {/* Confirm Password Field */}
+              <motion.div
+                initial={{ x: -20, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ delay: 0.6 }}
+              >
+                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                  Confirm New Password
+                </label>
+                <div className="mt-1 relative">
                   <input
                     id="confirmPassword"
                     name="confirmPassword"
                     type={showConfirmPassword ? "text" : "password"}
                     {...formik.getFieldProps('confirmPassword')}
-                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm pr-10"
+                    className={`block w-full px-4 py-3 rounded-xl bg-white bg-opacity-70 backdrop-blur-sm ${formik.touched.confirmPassword && formik.errors.confirmPassword ? 'border-red-500' : 'border-gray-200'} focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-300 shadow-sm pr-12`}
                     placeholder="Confirm new password"
                   />
                   <button
@@ -181,38 +252,65 @@ export default function ResetPassword() {
                     className="absolute inset-y-0 right-0 pr-3 flex items-center"
                   >
                     {showConfirmPassword ? (
-                      <EyeOff className="h-5 w-5 text-gray-400" />
+                      <EyeOff className="h-5 w-5 text-gray-400 hover:text-indigo-600 transition-colors" />
                     ) : (
-                      <Eye className="h-5 w-5 text-gray-400" />
+                      <Eye className="h-5 w-5 text-gray-400 hover:text-indigo-600 transition-colors" />
                     )}
                   </button>
                 </div>
                 {formik.touched.confirmPassword && formik.errors.confirmPassword && (
-                  <p className="mt-2 text-sm text-red-600">{formik.errors.confirmPassword}</p>
+                  <motion.p
+                    initial={{ y: -5, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    className="mt-2 text-sm text-red-600"
+                  >
+                    {formik.errors.confirmPassword}
+                  </motion.p>
                 )}
-              </div>
-            </div>
+              </motion.div>
 
-            <div>
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+              {/* Reset Password Button */}
+              <motion.div
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.7 }}
               >
-                {loading ? 'Resetting Password...' : 'Reset Password'}
-              </button>
-            </div>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="cursor-pointer w-full flex justify-center py-3 px-4 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-300 disabled:opacity-70"
+                >
+                  {loading ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Resetting Password...
+                    </>
+                  ) : (
+                    'Reset Password'
+                  )}
+                </button>
+              </motion.div>
 
-            <div className="text-center">
-              <Link
-                to="/login"
-                className="text-sm text-indigo-600 hover:text-indigo-500"
+              {/* Remember Password Link */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.8 }}
+                className="text-center text-sm"
               >
-                Remember your password? Sign in
-              </Link>
-            </div>
-          </form>
-        </div>
+                <Link
+                  to="/login"
+                  className="font-medium text-indigo-600 hover:text-indigo-500"
+                >
+                  Remember your password? Sign in
+                </Link>
+              </motion.div>
+            </form>
+          </div>
+        </motion.div>
       </div>
     </div>
   );

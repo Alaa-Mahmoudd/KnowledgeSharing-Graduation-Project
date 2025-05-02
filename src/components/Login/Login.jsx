@@ -1,32 +1,20 @@
 import { useState, useEffect } from 'react';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import toast from 'react-hot-toast';
-import { Eye, EyeOff, Mail, CheckCircle } from 'lucide-react';
-import { useAuth } from '../../Context/AuthContext';
+import toast, { Toaster } from 'react-hot-toast';
+import { FaEye, FaEyeSlash } from 'react-icons/fa';
+import { motion } from 'framer-motion';
+import { useUser } from '../../Context/UserContext.jsx';
 
 const Login = () => {
-    const [loading, setLoading] = useState(false);
-    const [isActivating, setIsActivating] = useState(false);
-    const [activationEmail, setActivationEmail] = useState('');
-    const [isActivated, setIsActivated] = useState(false);
-    const [activationFailed, setActivationFailed] = useState(false);
+    const { user, updateUser } = useUser();
+    const [apiError, setApiError] = useState("");
+    const [apiSuccess, setApiSuccess] = useState("");
+    const [isLoading, setIsLoading] = useState(false);
     const navigate = useNavigate();
-    const location = useLocation();
     const [showPassword, setShowPassword] = useState(false);
-    const { isAuthenticated, login } = useAuth();
-
-    // Get the return URL from location state or default to home
-    const from = location.state?.from?.pathname || '/';
-
-    // If already authenticated, redirect to home
-    useEffect(() => {
-        if (isAuthenticated) {
-            navigate('/');
-        }
-    }, [isAuthenticated, navigate]);
 
     const validationSchema = Yup.object({
         email: Yup.string()
@@ -36,32 +24,33 @@ const Login = () => {
             .required('Password is required'),
     });
 
-    const handleActivationComplete = async () => {
-        try {
-            // Get the stored credentials from localStorage
-            const storedCredentials = localStorage.getItem('tempCredentials');
-            if (storedCredentials) {
-                const { email, password } = JSON.parse(storedCredentials);
-                
-                // Attempt to login with stored credentials
-                const response = await axios.post(
-                    'https://knowledge-sharing-pied.vercel.app/user/login',
-                    { email, password }
-                );
+    const handleLogin = (formValues) => {
+        setIsLoading(true);
+        setApiError("");
 
-                if (response.data.success) {
-                    // Update auth context with token and user data from API
-                    await login(email, password, response.data.token, response.data.user);
-                    
-                    // Redirect to home page
-                    navigate('/');
-                }
-            }
-        } catch (error) {
-            console.error('Auto-login error:', error);
-            toast.error('Please login manually');
-            navigate('/login');
-        }
+        axios.post("https://knowledge-sharing-pied.vercel.app/user/login", formValues)
+            .then((apiResponse) => {
+                setApiSuccess(apiResponse?.data?.message);
+                setApiError("");
+
+                const { token, user } = apiResponse.data;
+
+                const userData = {
+                    ...user,
+                    token,
+                };
+
+                updateUser(userData);
+                setTimeout(() => {
+                    navigate("/home");
+                }, 2000);
+            })
+            .catch((apiResponse) => {
+                setApiError(apiResponse?.response?.data?.error || "Invalid email or password");
+                setApiSuccess("");
+                setIsLoading(false);
+                toast.error(apiResponse?.response?.data?.error || "Login failed");
+            });
     };
 
     const formik = useFormik({
@@ -70,225 +59,244 @@ const Login = () => {
             password: '',
         },
         validationSchema,
-        onSubmit: async (values) => {
-            try {
-                setLoading(true);
-                
-                // Attempt login directly
-                const response = await axios.post(
-                    'https://knowledge-sharing-pied.vercel.app/user/login',
-                    values
-                );
-
-                if (response.data.success) {
-                    // Update auth context with token and user data from API
-                    await login(values.email, values.password, response.data.token, response.data.user);
-                    navigate(from);
-                }
-            } catch (error) {
-                const errorMessage = error.response?.data?.error;
-                
-                if (errorMessage === 'You have to activate your account first!') {
-                    setIsActivating(true);
-                    setActivationEmail(values.email);
-                    setActivationFailed(false);
-                    setIsActivated(false);
-
-                    // Poll for account activation every 10 seconds
-                    const checkActivation = async () => {
-                        try {
-                            const activationCheck = await axios.post(
-                                'https://knowledge-sharing-pied.vercel.app/user/login',
-                                values
-                            );
-
-                            if (activationCheck.data.success) {
-                                clearInterval(pollInterval);
-                                setIsActivated(true);
-                                setActivationFailed(false);
-                                
-                                // Update auth context with token and user data from API
-                                await login(values.email, values.password, activationCheck.data.token, activationCheck.data.user);
-                                
-                                // Redirect to home page
-                                navigate('/');
-                                return;
-                            }
-                        } catch (checkError) {
-                            if (checkError.response?.data?.error !== 'You have to activate your account first!') {
-                                clearInterval(pollInterval);
-                                setIsActivating(false);
-                                setActivationFailed(true);
-                            }
-                        }
-                    };
-
-                    // Start polling
-                    const pollInterval = setInterval(checkActivation, 10000); // Poll every 10 seconds
-
-                    // Stop polling after 5 minutes
-                    setTimeout(() => {
-                        clearInterval(pollInterval);
-                        if (isActivating && !isActivated) {
-                            setActivationFailed(true);
-                        }
-                    }, 300000); // 5 minutes timeout
-                } else if (errorMessage === 'Invalid email or password') {
-                    toast.error('Invalid email or password. Please try again.');
-                } else if (errorMessage === 'Account is not activated') {
-                    toast.error('Please check your email to verify your account first.');
-                } else {
-                    toast.error(errorMessage || 'Login failed');
-                }
-            } finally {
-                setLoading(false);
-            }
-        },
+        onSubmit: handleLogin,
     });
 
-    if (isActivating) {
-        return (
-            <div className="min-h-screen bg-gray-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-                <div className="sm:mx-auto sm:w-full sm:max-w-md">
-                    <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-                        {!isActivated ? (
-                            <div className="text-center">
-                                <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-blue-100">
-                                    <Mail className="h-6 w-6 text-blue-600" />
-                                </div>
-                                <h3 className="mt-2 text-lg font-medium text-gray-900">Check your email</h3>
-                                <p className="mt-2 text-sm text-gray-500">
-                                    We've sent a verification link to {activationEmail}
-                                </p>
-                                <p className="mt-1 text-sm text-gray-500">
-                                    Please click the link in your email to activate your account.
-                                </p>
-                                <div className="mt-4">
-                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
-                                    <p className="mt-2 text-sm text-gray-500">Waiting for activation...</p>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="text-center">
-                                <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
-                                    <CheckCircle className="h-6 w-6 text-green-600" />
-                                </div>
-                                <h3 className="mt-2 text-lg font-medium text-gray-900">Account Activated!</h3>
-                                <p className="mt-2 text-sm text-gray-500">
-                                    Your account has been successfully activated.
-                                </p>
-                                <button
-                                    onClick={() => navigate('/')}
-                                    className="mt-4 w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                                >
-                                    Go to Home Page
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
     return (
-        <div className="min-h-screen bg-gray-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-            <div className="sm:mx-auto sm:w-full sm:max-w-md">
-                <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-                    Sign in to your account
-                </h2>
-            </div>
+        <>
+            <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center p-4">
+                {/* Floating bubbles background */}
+                <div className="absolute inset-0 overflow-hidden">
+                    {[...Array(10)].map((_, i) => (
+                        <motion.div
+                            key={i}
+                            initial={{ y: 0, x: Math.random() * 100 }}
+                            animate={{
+                                y: [0, Math.random() * 100 - 50, 0],
+                                x: [Math.random() * 100, Math.random() * 100 - 50, Math.random() * 100]
+                            }}
+                            transition={{
+                                duration: 15 + Math.random() * 20,
+                                repeat: Infinity,
+                                repeatType: "reverse",
+                                ease: "easeInOut"
+                            }}
+                            className={`absolute rounded-full opacity-10 ${i % 2 ? 'bg-indigo-500' : 'bg-purple-500'}`}
+                            style={{
+                                width: `${50 + Math.random() * 100}px`,
+                                height: `${50 + Math.random() * 100}px`,
+                                top: `${Math.random() * 100}%`,
+                                left: `${Math.random() * 100}%`,
+                            }}
+                        />
+                    ))}
+                </div>
 
-            <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-                <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-                    <form className="space-y-6" onSubmit={formik.handleSubmit}>
-                        <div>
-                            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                                Email address
-                            </label>
-                            <div className="mt-1">
-                                <input
-                                    id="email"
-                                    name="email"
-                                    type="email"
-                                    {...formik.getFieldProps('email')}
-                                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                                />
-                                {formik.touched.email && formik.errors.email && (
-                                    <p className="mt-2 text-sm text-red-600">{formik.errors.email}</p>
-                                )}
-                            </div>
+                {/* Main Form Container */}
+                <motion.div
+                    initial={{ scale: 0.95, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ duration: 0.5 }}
+                    className="relative z-10 w-full max-w-xl"
+                >
+                    {/* Glassmorphic Card */}
+                    <div className="bg-white bg-opacity-20 backdrop-blur-lg rounded-3xl shadow-xl overflow-hidden border border-white border-opacity-30">
+                        {/* Form Header with gradient */}
+                        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-8 text-center">
+                            <motion.h1
+                                initial={{ y: -20, opacity: 0 }}
+                                animate={{ y: 0, opacity: 1 }}
+                                transition={{ delay: 0.2 }}
+                                className="text-3xl font-bold text-white"
+                            >
+                                Welcome Back
+                            </motion.h1>
+                            <motion.p
+                                initial={{ y: -10, opacity: 0 }}
+                                animate={{ y: 0, opacity: 1 }}
+                                transition={{ delay: 0.3 }}
+                                className="text-indigo-100 mt-2"
+                            >
+                                Sign in to your account
+                            </motion.p>
                         </div>
 
-                        <div>
-                            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                                Password
-                            </label>
-                            <div className="mt-1">
-                                <div className="relative">
-                                    <input
-                                        id="password"
-                                        name="password"
-                                        type={showPassword ? "text" : "password"}
-                                        {...formik.getFieldProps('password')}
-                                        className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm pr-10"
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowPassword(!showPassword)}
-                                        className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                        {/* Form Content */}
+                        <div className="p-8">
+
+                            <form onSubmit={formik.handleSubmit} className="space-y-6">
+                                {/* Email Field */}
+                                <motion.div
+                                    initial={{ x: -20, opacity: 0 }}
+                                    animate={{ x: 0, opacity: 1 }}
+                                    transition={{ delay: 0.4 }}
+                                >
+                                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1 ml-1">
+                                        Email Address
+                                    </label>
+                                    <div className="relative">
+                                        <input
+                                            id="email"
+                                            name="email"
+                                            type="email"
+                                            onChange={formik.handleChange}
+                                            onBlur={formik.handleBlur}
+                                            value={formik.values.email}
+                                            className={`block w-full px-4 py-3 rounded-xl bg-white bg-opacity-70 backdrop-blur-sm ${formik.touched.email && formik.errors.email ? 'border-red-500' : 'border-transparent'} focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:outline-none transition-all duration-300 shadow-sm`}
+                                            placeholder="your@email.com"
+                                        />
+                                        <motion.div
+                                            animate={{
+                                                width: formik.touched.email && formik.errors.email ? '100%' : '0%',
+                                                opacity: formik.touched.email && formik.errors.email ? 1 : 0
+                                            }}
+                                            className="absolute bottom-0 left-0 h-0.5 bg-red-500 transition-all duration-300"
+                                        />
+                                    </div>
+                                    {formik.touched.email && formik.errors.email && (
+                                        <motion.div
+                                            initial={{ y: -5, opacity: 0 }}
+                                            animate={{ y: 0, opacity: 1 }}
+                                            className="text-red-500 text-xs mt-1 ml-1"
+                                        >
+                                            {formik.errors.email}
+                                        </motion.div>
+                                    )}
+                                </motion.div>
+
+                                {/* Password Field */}
+                                <motion.div
+                                    initial={{ x: -20, opacity: 0 }}
+                                    animate={{ x: 0, opacity: 1 }}
+                                    transition={{ delay: 0.5 }}
+                                >
+                                    <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1 ml-1">
+                                        Password
+                                    </label>
+                                    <div className="relative">
+                                        <input
+                                            id="password"
+                                            name="password"
+                                            type={showPassword ? "text" : "password"}
+                                            onChange={formik.handleChange}
+                                            onBlur={formik.handleBlur}
+                                            value={formik.values.password}
+                                            className={`block w-full px-4 py-3 rounded-xl bg-white bg-opacity-70 backdrop-blur-sm ${formik.touched.password && formik.errors.password ? 'border-red-500' : 'border-transparent'} focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:outline-none transition-all duration-300 shadow-sm pr-12`}
+                                            placeholder="••••••••"
+                                        />
+                                        <button
+                                            type="button"
+                                            className="absolute inset-y-0 right-0 pr-4 flex items-center"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            aria-label={showPassword ? "Hide password" : "Show password"}
+                                        >
+                                            {showPassword ? (
+                                                <FaEyeSlash className="h-5 w-5 text-gray-500 hover:text-indigo-600 transition-colors" />
+                                            ) : (
+                                                <FaEye className="h-5 w-5 text-gray-500 hover:text-indigo-600 transition-colors" />
+                                            )}
+                                        </button>
+                                        <motion.div
+                                            animate={{
+                                                width: formik.touched.password && formik.errors.password ? '100%' : '0%',
+                                                opacity: formik.touched.password && formik.errors.password ? 1 : 0
+                                            }}
+                                            className="absolute bottom-0 left-0 h-0.5 bg-red-500 transition-all duration-300"
+                                        />
+                                    </div>
+                                    {formik.touched.password && formik.errors.password && (
+                                        <motion.div
+                                            initial={{ y: -5, opacity: 0 }}
+                                            animate={{ y: 0, opacity: 1 }}
+                                            className="text-red-500 text-xs mt-1 ml-1"
+                                        >
+                                            {formik.errors.password}
+                                        </motion.div>
+                                    )}
+                                </motion.div>
+
+                                {/* Forgot Password Link */}
+                                <motion.div
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    transition={{ delay: 0.6 }}
+                                    className="text-right"
+                                >
+                                    <Link
+                                        to="/forget-password"
+                                        className="text-sm font-medium text-indigo-600 hover:text-indigo-500 transition-colors"
                                     >
-                                        {showPassword ? (
-                                            <EyeOff className="h-5 w-5 text-gray-400" />
+                                        Forgot password?
+                                    </Link>
+                                </motion.div>
+
+                                {/* Submit Button */}
+                                <motion.div
+                                    initial={{ y: 20, opacity: 0 }}
+                                    animate={{ y: 0, opacity: 1 }}
+                                    transition={{ delay: 0.7 }}
+                                >
+                                    <button
+                                        type='submit'
+                                        disabled={isLoading || apiSuccess}
+                                        className={`w-full flex justify-center items-center py-4 px-6 rounded-xl text-sm font-medium text-white transition-all duration-300 shadow-lg ${apiSuccess
+                                            ? 'bg-green-500 hover:bg-green-600'
+                                            : isLoading
+                                                ? 'bg-indigo-400 cursor-not-allowed'
+                                                : 'bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600'
+                                            }`}
+                                    >
+                                        {apiSuccess ? (
+                                            "✓ Login Successful"
+                                        ) : isLoading ? (
+                                            <>
+                                                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                </svg>
+                                                Signing in...
+                                            </>
                                         ) : (
-                                            <Eye className="h-5 w-5 text-gray-400" />
+                                            'Sign In'
                                         )}
                                     </button>
-                                </div>
-                                {formik.touched.password && formik.errors.password && (
-                                    <p className="mt-2 text-sm text-red-600">{formik.errors.password}</p>
-                                )}
-                            </div>
-                        </div>
+                                </motion.div>
 
-                        <div className="flex items-center justify-between">
-                            <div className="text-sm">
-                                <Link
-                                    to="/forget-password"
-                                    className="font-medium text-indigo-600 hover:text-indigo-500"
+                                {/* Register Link */}
+                                <motion.div
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    transition={{ delay: 0.8 }}
+                                    className="text-center text-sm text-gray-600"
                                 >
-                                    Forgot your password?
-                                </Link>
-                            </div>
-                        </div>
-
-                        <div>
-                            <button
-                                type="submit"
-                                disabled={loading}
-                                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
-                            >
-                                {loading ? 'Signing in...' : 'Sign in'}
-                            </button>
-                        </div>
-                    </form>
-
-                    <div className="mt-6">
-                        <div className="relative">
-                            <div className="relative flex justify-center text-sm">
-                                <span className="px-2 bg-white text-gray-500">
                                     Don't have an account?{' '}
-                                    <Link to="/register" className="font-medium text-indigo-600 hover:text-indigo-500">
-                                        Register
+                                    <Link
+                                        to={"/register"}
+                                        className="font-medium text-indigo-600 hover:text-indigo-500 transition-colors"
+                                    >
+                                        Sign up
                                     </Link>
-                                </span>
-                            </div>
+                                </motion.div>
+                            </form>
                         </div>
                     </div>
-                </div>
+                </motion.div>
             </div>
-        </div>
+            <Toaster
+                position="top-center"
+                reverseOrder={false}
+                toastOptions={{
+                    className: 'bg-white text-gray-800 shadow-lg rounded-xl',
+                    duration: 2000,
+                    style: {
+                        border: '1px solid rgba(255, 255, 255, 0.3)',
+                        backdropFilter: 'blur(10px)',
+                        backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                    },
+                }}
+            />
+        </>
     );
 };
 
-export default Login; 
+export default Login;

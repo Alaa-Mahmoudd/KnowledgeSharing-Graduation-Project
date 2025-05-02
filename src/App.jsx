@@ -1,20 +1,21 @@
 import React from "react";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
-import { Toaster } from "react-hot-toast";
 import Home from "./components/Home/Home";
 import Layout from "./components/Layout/Layout";
-import About from "./components/About/About";
-import Profile from "./components/Profile/Profile";
 import NotFound from "./components/NotFound/NotFound";
 import Dashboard from "./components/Dashboard/Dashboard";
 import KnowledgeCorner from "./components/KnowledgeCorner/KnowledgeCorner";
 import Chatbot from "./components/Chatbot/Chatbot";
 import Register from "./components/Register/Register.jsx";
 import Login from "./components/Login/Login.jsx";
-import { AuthProvider } from "./Context/AuthContext";
+import { UserProvider } from "./Context/UserContext.jsx";
 import ProtectedRoute from "./components/ProtectedRoute/ProtectedRoute.jsx";
 import ForgetPassword from "./components/ForgetPassword/ForgetPassword.jsx";
 import ResetPassword from "./components/ResetPassword/ResetPassword.jsx";
+import WelcomePage from "./components/Welcome/Welcome.jsx";
+import AboutUs from "./components/About/About.jsx";
+import Profile from "./components/Profile/Profile.jsx";
+import PublicRoute from "./components/PublicRoute/PublicRoute.jsx";
 
 const router = createBrowserRouter([
   {
@@ -23,11 +24,21 @@ const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <Home />,
+        element: <WelcomePage />,
       },
       {
         path: "about",
-        element: <About />,
+        element: <ProtectedRoute>
+          <AboutUs />
+        </ProtectedRoute>,
+      },
+      {
+        path: "home",
+        element: (
+          <ProtectedRoute>
+            <Home />
+          </ProtectedRoute>
+        ),
       },
       {
         path: "profile",
@@ -67,11 +78,11 @@ const router = createBrowserRouter([
       },
       {
         path: "login",
-        element: <Login />,
+        element: <PublicRoute><Login /></PublicRoute>,
       },
       {
         path: "register",
-        element: <Register />,
+        element: <PublicRoute><Register /></PublicRoute>,
       },
       {
         path: "forget-password",
@@ -85,45 +96,20 @@ const router = createBrowserRouter([
   },
 ]);
 
-// Create a wrapper component that combines AuthProvider and RouterProvider
+// Create a wrapper component that combines UserProvider and RouterProvider
 const AppWithProviders = () => {
   return (
-    <AuthProvider>
+    <UserProvider>
       <RouterProvider router={router} />
-    </AuthProvider>
+    </UserProvider>
   );
 };
 
 function App() {
   return (
-    <div className="min-h-screen bg-[#E3ECE7]">
-      <Toaster
-        position="top-center"
-        reverseOrder={false}
-        toastOptions={{
-          duration: 3000,
-          style: {
-            background: '#363636',
-            color: '#fff',
-            padding: '16px',
-            borderRadius: '8px',
-          },
-          success: {
-            duration: 3000,
-            theme: {
-              primary: '#4aed88',
-            },
-          },
-          error: {
-            duration: 3000,
-            theme: {
-              primary: '#ff4b4b',
-            },
-          },
-        }}
-      />
-      <AppWithProviders />
-    </div>
+
+    <AppWithProviders />
+
   );
 }
 
