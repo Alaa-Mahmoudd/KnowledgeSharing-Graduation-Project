@@ -17,10 +17,9 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    // Check if user is logged in on mount
     const token = localStorage.getItem("token");
     const storedUser = localStorage.getItem("user");
-    
+
     if (token) {
       if (storedUser && storedUser !== "undefined" && storedUser !== "null") {
         try {
@@ -31,12 +30,10 @@ export const AuthProvider = ({ children }) => {
           }
         } catch (error) {
           console.error("Error parsing stored user data:", error);
-          // Clear invalid data
           localStorage.removeItem("token");
           localStorage.removeItem("user");
         }
       } else {
-        // If no valid user data, clear everything
         localStorage.removeItem("token");
         localStorage.removeItem("user");
       }
@@ -48,7 +45,6 @@ export const AuthProvider = ({ children }) => {
     try {
       setLoading(true);
       if (token) {
-        // Store token and user data in localStorage
         localStorage.setItem("token", token);
         if (userData) {
           try {
@@ -58,12 +54,9 @@ export const AuthProvider = ({ children }) => {
             console.error("Error storing user data:", error);
           }
         }
-        
-        // Update authentication state
+
         setIsAuthenticated(true);
-        
-        // Show success message
-        const userName = userData?.name || email || 'User';
+        const userName = userData?.name || email || "User";
         toast.success(`Welcome back, ${userName}!`);
       }
     } catch (error) {
@@ -76,7 +69,6 @@ export const AuthProvider = ({ children }) => {
   const register = async (userData) => {
     try {
       setLoading(true);
-      // Registration is handled by the Register component
       toast.success("Registration successful! Please login.");
     } catch (error) {
       toast.error(error.message || "Registration failed");
@@ -86,20 +78,19 @@ export const AuthProvider = ({ children }) => {
   };
 
   const handleLogout = () => {
-    // Clear all stored data
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     localStorage.removeItem("tempCredentials");
-    
-    // Reset state
+
     setUser(null);
     setIsAuthenticated(false);
-    
+
     toast.success("Logged out successfully");
   };
 
   const value = {
     user,
+    role: user?.role || null,
     loading,
     isAuthenticated,
     login,

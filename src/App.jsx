@@ -17,7 +17,18 @@ import ForgetPassword from "./components/ForgetPassword/ForgetPassword.jsx";
 import ResetPassword from "./components/ResetPassword/ResetPassword.jsx";
 import SpecPost from "./components/SpecPost/SpecPost.jsx";
 import SavedPosts from "./components/SavedPosts/SavedPosts.jsx";
-
+import AdminLogin from "./components/AdminLogin/AdminLogin.jsx";
+import AdminForgetPasssword from "./components/AdminForgetPassword/AdminForgetPasssword.jsx";
+import AdminResetPassword from "./components/AdminResetPassword/AdminResetPassword.jsx";
+import AllNationalIds from "./components/AllNationalIds/AllNationalIds.jsx";
+import AllProducts from "./components/AllProducts/AllProducts.jsx";
+import AddProduct from "./components/AddProduct/AddProduct.jsx";
+import FlaggedPosts from "./components/FlaggedPosts/FlaggedPosts.jsx";
+import { toast } from "react-hot-toast";
+import Shop from "./components/Shop/Shop.jsx";
+import Post from "./components/Post/Post.jsx";
+import AddPost from "./components/AddPost/AddPost.jsx";
+import EditPost from "./components/EditPost/EditPost.jsx";
 const router = createBrowserRouter([
   {
     path: "",
@@ -43,14 +54,7 @@ const router = createBrowserRouter([
         path: "*",
         element: <NotFound />,
       },
-      {
-        path: "dashboard",
-        element: (
-          <ProtectedRoute>
-            <Dashboard />
-          </ProtectedRoute>
-        ),
-      },
+
       {
         path: "savedPosts",
         element: (
@@ -60,13 +64,30 @@ const router = createBrowserRouter([
         ),
       },
       {
-        path: "knowledgeCorner",
+        path: "post",
         element: (
           <ProtectedRoute>
-            <KnowledgeCorner />
+            <Post />
           </ProtectedRoute>
         ),
       },
+      {
+        path: "addPost",
+        element: (
+          <ProtectedRoute>
+            <AddPost />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "editPost/:postId",
+        element: (
+          <ProtectedRoute>
+            <EditPost />
+          </ProtectedRoute>
+        ),
+      },
+
       {
         path: "knowledgeCorner/:id",
         element: (
@@ -76,6 +97,34 @@ const router = createBrowserRouter([
         ),
       },
 
+      {
+        path: "admin/all-products",
+        element: <AllProducts />,
+      },
+      {
+        path: "admin/national-ids",
+        element: <AllNationalIds />,
+      },
+      {
+        path: "admin/add-product",
+        element: <AddProduct />,
+      },
+      {
+        path: "chatbot",
+        element: (
+          <ProtectedRoute>
+            <Chatbot />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "shop",
+        element: (
+          <ProtectedRoute>
+            <Shop />
+          </ProtectedRoute>
+        ),
+      },
       {
         path: "chatbot",
         element: (
@@ -89,6 +138,27 @@ const router = createBrowserRouter([
         element: <Login />,
       },
       {
+        path: "admin/login",
+        element: <AdminLogin />,
+      },
+
+      {
+        path: "admin/forgetPassword",
+        element: <AdminForgetPasssword />,
+      },
+      {
+        path: "admin/resetPassword",
+        element: <AdminResetPassword />,
+      },
+      {
+        path: "admin/flagged-posts",
+        element: <FlaggedPosts />,
+      },
+      {
+        path: "admin/dashboard",
+        element: <Dashboard />,
+      },
+      {
         path: "register",
         element: <Register />,
       },
@@ -99,6 +169,10 @@ const router = createBrowserRouter([
       {
         path: "reset-password",
         element: <ResetPassword />,
+      },
+      {
+        path: "/post/:id",
+        element: <SpecPost />,
       },
     ],
   },
@@ -115,7 +189,7 @@ const AppWithProviders = () => {
 
 function App() {
   return (
-    <div className="min-h-screen bg-[#E3ECE7]">
+    <div className="min-h-screen bg-white">
       <Toaster
         position="top-center"
         reverseOrder={false}

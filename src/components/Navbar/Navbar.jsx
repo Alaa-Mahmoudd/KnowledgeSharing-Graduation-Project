@@ -5,17 +5,19 @@ import { useAuth } from "../../Context/AuthContext";
 import { FiSearch } from "react-icons/fi";
 
 export default function Navbar() {
-  const { isAuthenticated, handleLogout } = useAuth();
+  const { isAuthenticated, handleLogout, user } = useAuth();
   const navigate = useNavigate();
 
   const handleLogoutClick = () => {
     handleLogout();
     navigate("/login");
   };
-
+  // if (user && user.role !== "user" && user.role !== "doctor") {
+  //   return null;
+  // }
   return (
     <div>
-      <nav className="border-b bg-[#E3ECE7]">
+      <nav className="border-b bg-white">
         <div className="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto p-4">
           {/* Logo and Search */}
           <div className="flex items-center space-x-4">
@@ -62,10 +64,16 @@ export default function Navbar() {
             ) : (
               <>
                 <NavLink
-                  to={"/knowledgeCorner"}
+                  to={"/post"}
                   className="text-md text-black font-normal hover:text-[#7A9EB8]"
                 >
                   Read
+                </NavLink>
+                <NavLink
+                  to={"/shop"}
+                  className="text-md text-black font-normal hover:text-[#7A9EB8]"
+                >
+                  Shop
                 </NavLink>
 
                 {/* Logout and Hamburger button in one row */}
