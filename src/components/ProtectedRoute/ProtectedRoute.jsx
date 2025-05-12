@@ -2,15 +2,18 @@ import React from "react";
 import { Navigate } from "react-router-dom";
 import { useUser } from "../../Context/UserContext";
 
-const ProtectedRoute = (props) => {
-  const { user } = useUser();
+const ProtectedRoute = ({ children }) => {
+  const { user, isUserLoading } = useUser();
 
-  if (user) {
-    return props.children;
+  if (isUserLoading) {
+    return null; // أو loading spinner لو حابب
   }
-  else {
-    return <Navigate to={'/login'} />
+
+  if (user?.token) {
+    return children;
   }
-}
+
+  return <Navigate to="/login" />;
+};
 
 export default ProtectedRoute;

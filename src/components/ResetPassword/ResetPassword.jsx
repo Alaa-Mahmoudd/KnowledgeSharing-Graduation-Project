@@ -14,9 +14,8 @@ export default function ResetPassword() {
   const [resetData, setResetData] = useState(null);
   const navigate = useNavigate();
 
-  // Get data from sessionStorage
   useEffect(() => {
-    const storedData = sessionStorage.getItem('resetPasswordData');
+    const storedData = localStorage.getItem('resetPasswordData');
     if (!storedData) {
       navigate('/forget-password');
       return;
@@ -70,7 +69,7 @@ export default function ResetPassword() {
 
         if (response.data.success) {
           toast.success('Password reset successful! Try to login now :)');
-          sessionStorage.removeItem('resetPasswordData');
+          localStorage.removeItem('resetPasswordData');
           navigate('/login');
         }
       } catch (error) {
@@ -78,7 +77,7 @@ export default function ResetPassword() {
         toast.error(errorMessage);
 
         if (errorMessage.includes('code') || errorMessage.includes('session')) {
-          sessionStorage.removeItem('resetPasswordData');
+          localStorage.removeItem('resetPasswordData');
           navigate('/forget-password');
         }
       } finally {
@@ -88,7 +87,7 @@ export default function ResetPassword() {
   });
 
   const handleBackToForgetPassword = () => {
-    sessionStorage.removeItem('resetPasswordData');
+    localStorage.removeItem('resetPasswordData');
     navigate('/forget-password');
   };
 

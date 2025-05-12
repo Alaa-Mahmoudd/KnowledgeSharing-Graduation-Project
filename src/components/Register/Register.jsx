@@ -17,16 +17,20 @@ const Register = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [previewImage, setPreviewImage] = useState(null);
+    const [previewNationalId, setPreviewNationalId] = useState(null);
     const [isHovering, setIsHovering] = useState(false);
+    const [isHoveringId, setIsHoveringId] = useState(false);
 
     const validationSchema = Yup.object({
         name: Yup.string()
             .min(2, 'Name must be at least 2 characters')
             .max(25, 'Name must be less than 25 characters')
             .required('Name is required'),
+
         email: Yup.string()
             .email('Invalid email address')
             .required('Email is required'),
+
         password: Yup.string()
             .min(8, 'Password must be at least 8 characters')
             .matches(
@@ -34,34 +38,49 @@ const Register = () => {
                 'Password must contain at least one lowercase letter, one uppercase letter, and one special character'
             )
             .required('Password is required'),
+
         confirmPassword: Yup.string()
             .oneOf([Yup.ref('password'), null], 'Passwords must match')
             .required('Confirm Password is required'),
+
         profileImage: Yup.mixed()
             .nullable()
             .test(
                 'fileSize',
                 'File too large (max 2MB)',
-                value => !value || (value && value.size <= 1024 * 1024 * 2)
+                value => !value || (value && value.size <= 2 * 1024 * 1024)
             )
             .test(
                 'fileFormat',
                 'Unsupported Format (use JPG, JPEG, or PNG)',
                 value => !value || (value && ['image/jpg', 'image/jpeg', 'image/png'].includes(value.type))
             ),
+
         role: Yup.string()
             .oneOf(['doctor', 'user'], 'Select a valid role')
             .required('Role is required'),
-        nationalId: Yup.string()
-            .test('nationalId-required', 'National ID is required for doctors', function (value) {
-                if (this.parent.role === 'doctor') {
-                    if (!value) return false;
-                    if (!/^[0-9]+$/.test(value)) return false;
-                    if (value.length < 10 || value.length > 14) return false;
+
+        nationalID: Yup.mixed().test(
+            'nationalID-check',
+            'National ID image is required and must be JPG, JPEG, or PNG (max 2MB) for doctors',
+            function (value) {
+                const { role } = this.parent;
+
+                if (role === 'doctor') {
+                    if (!value) return this.createError({ message: 'National ID image is required for doctors' });
+                    if (value.size > 2 * 1024 * 1024) return this.createError({ message: 'File too large (max 2MB)' });
+                    const validTypes = ['image/jpg', 'image/jpeg', 'image/png'];
+                    if (!validTypes.includes(value.type)) {
+                        return this.createError({ message: 'Unsupported Format (use JPG, JPEG, or PNG)' });
+                    }
                 }
+
                 return true;
-            })
+            }
+        )
+
     });
+
 
     const handleRegister = async (values) => {
         try {
@@ -70,12 +89,17 @@ const Register = () => {
             formData.append('name', values.name);
             formData.append('email', values.email);
             formData.append('password', values.password);
+            formData.append('confirmPassword', values.confirmPassword);
             formData.append('role', values.role);
-            formData.append('nationalId', values.nationalId);
-            
+
             // Only append profileImage if it exists, otherwise use default avatar
             if (values.profileImage) {
                 formData.append('profileImage', values.profileImage);
+            }
+
+            // Append national ID image for doctors
+            if (values.role === 'doctor' && values.nationalID) {
+                formData.append('nationalID', values.nationalID);
             }
 
             const response = await axios.post(
@@ -87,7 +111,6 @@ const Register = () => {
                     }
                 }
             );
-
             if (response.data) {
                 setApiSuccess(true);
                 setTimeout(() => {
@@ -96,6 +119,10 @@ const Register = () => {
             }
         } catch (error) {
             setApiError(error.response?.data?.message || 'Registration failed');
+            toast.error(apiError || 'Registration failed');
+            console.log(error);
+
+
         } finally {
             setIsLoading(false);
         }
@@ -107,6 +134,12 @@ const Register = () => {
         setPreviewImage(file ? URL.createObjectURL(file) : null);
     };
 
+    const handleNationalIdChange = (event) => {
+        const file = event.currentTarget.files[0];
+        formik.setFieldValue('nationalID', file);
+        setPreviewNationalId(file ? URL.createObjectURL(file) : null);
+    };
+
     const formik = useFormik({
         initialValues: {
             name: '',
@@ -115,7 +148,7 @@ const Register = () => {
             confirmPassword: '',
             profileImage: null,
             role: '',
-            nationalId: ''
+            nationalID: null
         },
         validationSchema,
         onSubmit: handleRegister,
@@ -239,7 +272,7 @@ const Register = () => {
                                     <motion.div
                                         initial={{ y: -10, opacity: 0 }}
                                         animate={{ y: 0, opacity: 1 }}
-                                        className="text-red-500 text-xs text-center mt-2"
+                                        className="text-red-500 text-xs text-center mt-3"
                                     >
                                         {formik.errors.profileImage}
                                     </motion.div>
@@ -277,7 +310,7 @@ const Register = () => {
                                         <motion.div
                                             initial={{ y: -5, opacity: 0 }}
                                             animate={{ y: 0, opacity: 1 }}
-                                            className="text-red-500 text-xs mt-1 ml-1"
+                                            className="text-red-500 text-xs mt-3 ml-1"
                                         >
                                             {formik.errors.name}
                                         </motion.div>
@@ -316,7 +349,7 @@ const Register = () => {
                                         <motion.div
                                             initial={{ y: -5, opacity: 0 }}
                                             animate={{ y: 0, opacity: 1 }}
-                                            className="text-red-500 text-xs mt-1 ml-1"
+                                            className="text-red-500 text-xs mt-3 ml-1"
                                         >
                                             {formik.errors.email}
                                         </motion.div>
@@ -367,7 +400,7 @@ const Register = () => {
                                         <motion.div
                                             initial={{ y: -5, opacity: 0 }}
                                             animate={{ y: 0, opacity: 1 }}
-                                            className="text-red-500 text-xs mt-1 ml-1"
+                                            className="text-red-500 text-xs mt-3 ml-1"
                                         >
                                             {formik.errors.password}
                                         </motion.div>
@@ -418,7 +451,7 @@ const Register = () => {
                                         <motion.div
                                             initial={{ y: -5, opacity: 0 }}
                                             animate={{ y: 0, opacity: 1 }}
-                                            className="text-red-500 text-xs mt-1 ml-1"
+                                            className="text-red-500 text-xs mt-3 ml-1"
                                         >
                                             {formik.errors.confirmPassword}
                                         </motion.div>
@@ -465,45 +498,81 @@ const Register = () => {
                                         <motion.div
                                             initial={{ y: -5, opacity: 0 }}
                                             animate={{ y: 0, opacity: 1 }}
-                                            className="text-red-500 text-xs mt-1 ml-1"
+                                            className="text-red-500 text-xs mt-3 ml-1"
                                         >
                                             {formik.errors.role}
                                         </motion.div>
                                     )}
                                 </motion.div>
 
-                                {/* National ID Field - Only shown for doctors */}
+                                {/* National ID Image Upload - Only shown for doctors */}
                                 {formik.values.role === 'doctor' && (
                                     <motion.div
                                         initial={{ x: -20, opacity: 0 }}
                                         animate={{ x: 0, opacity: 1 }}
                                         transition={{ delay: 1.0 }}
+                                        className="space-y-2"
                                     >
-                                        <label htmlFor="nationalId" className="block text-sm font-medium text-gray-700 mb-1 ml-1">
-                                            National ID
+                                        <label className="block text-sm font-medium text-gray-700 mb-1 ml-1">
+                                            Doctor's National ID Image
                                         </label>
-                                        <div className="relative">
-                                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                                <FaIdCard className="h-5 w-5 text-gray-400" />
+                                        <div className="text-xs text-gray-500 mb-2 ml-1">
+                                            Upload a clear photo of your government-issued medical ID
+                                        </div>
+                                        <label
+                                            htmlFor="nationalID"
+                                            className="cursor-pointer group"
+                                            onMouseEnter={() => setIsHoveringId(true)}
+                                            onMouseLeave={() => setIsHoveringId(false)}
+                                        >
+                                            <div className={`border-2 border-dashed rounded-xl p-4 text-center transition-all ${formik.touched.nationalID && formik.errors.nationalID ? 'border-red-500' : 'border-gray-300 hover:border-indigo-400'} bg-white bg-opacity-70 backdrop-blur-sm`}>
+                                                {previewNationalId ? (
+                                                    <div className="relative">
+                                                        <motion.img
+                                                            initial={{ scale: 0.9 }}
+                                                            animate={{ scale: 1 }}
+                                                            src={previewNationalId}
+                                                            alt="National ID preview"
+                                                            className="w-full h-32 object-contain rounded-lg mb-2"
+                                                        />
+                                                        <motion.div
+                                                            animate={{
+                                                                scale: isHoveringId ? 1.1 : 1,
+                                                                backgroundColor: isHoveringId ? 'rgba(99, 102, 241, 0.9)' : 'rgba(99, 102, 241, 0.7)'
+                                                            }}
+                                                            className="absolute top-2 right-2 bg-indigo-500 bg-opacity-70 rounded-full p-2 transition-all duration-300 shadow-md"
+                                                        >
+                                                            <FaUpload className="h-3 w-3 text-white" />
+                                                        </motion.div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex flex-col items-center justify-center py-6">
+                                                        <FaIdCard className="h-8 w-8 text-gray-400 mb-2" />
+                                                        <p className="text-sm font-medium text-gray-700">
+                                                            Click to upload National ID
+                                                        </p>
+                                                        <p className="text-xs text-gray-500 mt-1">
+                                                            JPG, JPEG, or PNG (max 2MB)
+                                                        </p>
+                                                    </div>
+                                                )}
                                             </div>
                                             <input
-                                                id="nationalId"
-                                                name="nationalId"
-                                                type="text"
-                                                onChange={formik.handleChange}
-                                                onBlur={formik.handleBlur}
-                                                value={formik.values.nationalId}
-                                                className={`block w-full pl-10 px-4 py-3 rounded-xl bg-white bg-opacity-70 backdrop-blur-sm ${formik.touched.nationalId && formik.errors.nationalId ? 'border-red-500' : 'border-transparent'} focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:outline-none transition-all duration-300 shadow-sm`}
-                                                placeholder="Enter your national ID"
+                                                id="nationalID"
+                                                name="nationalID"
+                                                type="file"
+                                                accept="image/*"
+                                                onChange={handleNationalIdChange}
+                                                className="hidden"
                                             />
-                                        </div>
-                                        {formik.touched.nationalId && formik.errors.nationalId && (
+                                        </label>
+                                        {formik.touched.nationalID && formik.errors.nationalID && (
                                             <motion.div
                                                 initial={{ y: -5, opacity: 0 }}
                                                 animate={{ y: 0, opacity: 1 }}
                                                 className="text-red-500 text-xs mt-1 ml-1"
                                             >
-                                                {formik.errors.nationalId}
+                                                {formik.errors.nationalID}
                                             </motion.div>
                                         )}
                                     </motion.div>

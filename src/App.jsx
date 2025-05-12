@@ -16,6 +16,7 @@ import WelcomePage from "./components/Welcome/Welcome.jsx";
 import AboutUs from "./components/About/About.jsx";
 import Profile from "./components/Profile/Profile.jsx";
 import PublicRoute from "./components/PublicRoute/PublicRoute.jsx";
+import NotificationsPage from "./components/Notifications/NotificationsPage.jsx";
 
 const router = createBrowserRouter([
   {
@@ -24,7 +25,9 @@ const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <WelcomePage />,
+        element: <PublicRoute>
+          <WelcomePage />
+        </PublicRoute>,
       },
       {
         path: "about",
@@ -91,6 +94,10 @@ const router = createBrowserRouter([
       {
         path: "reset-password",
         element: <ResetPassword />,
+      },
+      {
+        path: "notifications",
+        element: <NotificationsPage />,
       }
     ],
   },

@@ -16,12 +16,14 @@ const Profile = () => {
   const [successMessage, setSuccessMessage] = useState(null);
   const [posts, setPosts] = useState([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   const [profileData, setProfileData] = useState({
     name: "",
     email: "",
     role: "",
-    profileImage: "https://ui-avatars.com/api/?name=User&background=6366f1&color=fff"
+    profileImage: null,
+    profileImageFile: null
   });
 
   // Get token from context (with prefix)
@@ -50,7 +52,8 @@ const Profile = () => {
             name: userData.name || 'No name provided',
             email: userData.email || 'No email provided',
             role: userData.role || 'No role provided',
-            profileImage: userData.profileImage?.url || `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.name || 'User')}&background=6366f1&color=fff`
+            profileImage: userData.profileImage?.url || 'No Profile Image provided', // لو مفيش صورة خليه فاضي
+            profileImageFile: null
           });
 
           // Set posts from the same response
@@ -111,6 +114,7 @@ const Profile = () => {
 
   const handleUpdateProfile = async () => {
     try {
+      setIsUpdating(true);
       const token = getToken();
       if (!token) {
         navigate('/login');
@@ -120,8 +124,11 @@ const Profile = () => {
       const formData = new FormData();
       formData.append('name', profileData.name);
 
-      // Only append the image if it's a new file
-      if (profileData.profileImageFile) {
+      // إرسال صورة جديدة فقط إن وُجدت
+      if (
+        profileData.profileImageFile &&
+        profileData.profileImage !== profileData.originalImage
+      ) {
         formData.append('profileImage', profileData.profileImageFile);
       }
 
@@ -138,17 +145,16 @@ const Profile = () => {
 
       setSuccessMessage('Profile updated successfully!');
       setIsEditing(false);
-
-      // Clear the file from state after successful upload
       setProfileData(prev => ({ ...prev, profileImageFile: null }));
-
-      // Clear success message after 3 seconds
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to update profile');
       console.error('Update profile error:', err);
+    } finally {
+      setIsUpdating(false);
     }
   };
+
   const handleChangePassword = () => {
     navigate("/forget-password")
   }
@@ -177,13 +183,9 @@ const Profile = () => {
     }
   };
 
-  const handleRemoveImage = () => {
-    setProfileData(prev => ({
-      ...prev,
-      profileImage: "https://ui-avatars.com/api/?name=User&background=6366f1&color=fff",
-      profileImageFile: null
-    }));
-  };
+
+
+
 
   if (loading) {
     return (
@@ -278,10 +280,10 @@ const Profile = () => {
             >
               {errorConfig.icon}
             </motion.div>
-            
+
             <h2 className="text-2xl font-bold text-gray-900 mb-2">{errorConfig.title}</h2>
             <p className="text-gray-600 mb-4">{error}</p>
-            
+
             {errorConfig.showDate && (
               <div className={`w-full ${errorConfig.bgColor} rounded-lg p-4 mb-6`}>
                 <div className="flex items-center justify-center space-x-2">
@@ -429,7 +431,9 @@ const Profile = () => {
                     alt="Profile"
                   />
                 ) : (
-                  <UserCircleIcon className="h-32 w-32 text-indigo-300" />
+                  <div className="h-32 w-32 rounded-full bg-indigo-100 flex items-center justify-center border-4 border-indigo-200 shadow-lg">
+                    <UserCircleIcon className="h-24 w-24 text-indigo-400" />
+                  </div>
                 )}
                 {isEditing && (
                   <div className="absolute bottom-0 right-0 flex gap-2">
@@ -440,15 +444,6 @@ const Profile = () => {
                     >
                       <CameraIcon className="h-5 w-5" />
                     </motion.button>
-                    {profileData.profileImage && !profileData.profileImage.includes('ui-avatars.com') && (
-                      <motion.button
-                        whileTap={{ scale: 0.9 }}
-                        onClick={handleRemoveImage}
-                        className="cursor-pointer bg-red-600 p-2 rounded-full text-white hover:bg-red-700 transition-all shadow-lg"
-                      >
-                        <TrashIcon className="h-5 w-5" />
-                      </motion.button>
-                    )}
                   </div>
                 )}
                 <input
@@ -489,10 +484,37 @@ const Profile = () => {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.3 }}
-                  className="inline-block mt-2 px-4 py-1 bg-indigo-100 text-indigo-900 rounded-full text-sm font-medium"
+                  className="inline-block mt-2 px-4 py-1.5 rounded-full text-sm font-semibold shadow-sm 
+             bg-green-100 text-green-900"
                 >
-                  {profileData.role === 'doctor' ? 'Professional' : 'Community Member'}
+                  {profileData.role === 'doctor' ? (
+                    <div className="flex items-center gap-2">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 122.88 116.87"
+                        className="w-5 h-5"
+                      >
+                        <polygon
+                          fill="#10a64a"
+                          fillRule="evenodd"
+                          points="61.37 8.24 80.43 0 90.88 17.79 111.15 22.32 109.15 42.85 122.88 
+                58.43 109.2 73.87 111.15 94.55 91 99 80.43 116.87 61.51 108.62 42.45 116.87 
+                32 99.08 11.73 94.55 13.73 74.01 0 58.43 13.68 42.99 11.73 22.32 31.88 17.87 
+                42.45 0 61.37 8.24"
+                        />
+                        <path
+                          fill="#fff"
+                          d="M37.92,65c-6.07-6.53,3.25-16.26,10-10.1,2.38,2.17,5.84,5.34,8.24,7.49L74.66,39.66C81.1,
+                33,91.27,42.78,84.91,49.48L61.67,77.2a7.13,7.13,0,0,1-9.9.44C47.83,73.89,42.05,68.5,37.92,65Z"
+                        />
+                      </svg>
+                      <span className="tracking-wide">Verified Doctor</span>
+                    </div>
+                  ) : (
+                    'Community Member'
+                  )}
                 </motion.span>
+
 
                 <motion.div
                   initial={{ opacity: 0 }}
@@ -501,14 +523,29 @@ const Profile = () => {
                   className="flex justify-center md:justify-start gap-4 mt-6"
                 >
                   <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                    whileHover={!isUpdating ? { scale: 1.05 } : {}}
+                    whileTap={!isUpdating ? { scale: 0.95 } : {}}
+                    disabled={isUpdating}
                     onClick={() => isEditing ? handleUpdateProfile() : setIsEditing(true)}
-                    className="cursor-pointer flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all shadow-md"
+                    className={`cursor-pointer flex items-center gap-2 px-5 py-2.5 rounded-lg transition-all shadow-md
+    ${isUpdating ? 'bg-indigo-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'} text-white`}
                   >
-                    <PencilIcon className="h-5 w-5" />
-                    <span>{isEditing ? 'Save Changes' : 'Edit Profile'}</span>
+                    {isUpdating ? (
+                      <>
+                        <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8z" />
+                        </svg>
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      <>
+                        <PencilIcon className="h-5 w-5" />
+                        <span>{isEditing ? 'Save Changes' : 'Edit Profile'}</span>
+                      </>
+                    )}
                   </motion.button>
+
 
                   {isEditing ? (
                     <motion.button
