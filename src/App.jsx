@@ -1,24 +1,25 @@
 import React from "react";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
-import { Toaster } from "react-hot-toast";
 import Home from "./components/Home/Home";
 import Layout from "./components/Layout/Layout";
-import About from "./components/About/About";
-import Profile from "./components/Profile/Profile";
 import NotFound from "./components/NotFound/NotFound";
-import Dashboard from "./components/Dashboard/Dashboard";
-import KnowledgeCorner from "./components/KnowledgeCorner/KnowledgeCorner";
+import Dashboard from "./components/Dashboard/Dashboard.jsx";
 import Chatbot from "./components/Chatbot/Chatbot";
 import Register from "./components/Register/Register.jsx";
 import Login from "./components/Login/Login.jsx";
-import { AuthProvider } from "./Context/AuthContext";
+import { UserProvider } from "./Context/UserContext.jsx";
 import ProtectedRoute from "./components/ProtectedRoute/ProtectedRoute.jsx";
 import ForgetPassword from "./components/ForgetPassword/ForgetPassword.jsx";
 import ResetPassword from "./components/ResetPassword/ResetPassword.jsx";
+import WelcomePage from "./components/Welcome/Welcome.jsx";
+import AboutUs from "./components/About/About.jsx";
+import Profile from "./components/Profile/Profile.jsx";
+import PublicRoute from "./components/PublicRoute/PublicRoute.jsx";
+import NotificationsPage from "./components/Notifications/NotificationsPage.jsx";
 import SpecPost from "./components/SpecPost/SpecPost.jsx";
 import SavedPosts from "./components/SavedPosts/SavedPosts.jsx";
 import AdminLogin from "./components/AdminLogin/AdminLogin.jsx";
-import AdminForgetPasssword from "./components/AdminForgetPassword/AdminForgetPasssword.jsx";
+import AdminForgetPassword from "./components/AdminForgetPassword/AdminForgetPasssword.jsx";
 import AdminResetPassword from "./components/AdminResetPassword/AdminResetPassword.jsx";
 import AllNationalIds from "./components/AllNationalIds/AllNationalIds.jsx";
 import AllProducts from "./components/AllProducts/AllProducts.jsx";
@@ -29,6 +30,9 @@ import Shop from "./components/Shop/Shop.jsx";
 import Post from "./components/Post/Post.jsx";
 import AddPost from "./components/AddPost/AddPost.jsx";
 import EditPost from "./components/EditPost/EditPost.jsx";
+import { AdminProvider } from "./Context/AdminContext.jsx";
+import AdminLayout from "./components/AdminLayout/AdminLayout.jsx";
+import AdminProtectedRoute from "./components/AdminProtectedRoute/AdminProtectedRoute.jsx";
 const router = createBrowserRouter([
   {
     path: "",
@@ -36,11 +40,27 @@ const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <Home />,
+        element: (
+          <PublicRoute>
+            <WelcomePage />
+          </PublicRoute>
+        ),
       },
       {
         path: "about",
-        element: <About />,
+        element: (
+          <ProtectedRoute>
+            <AboutUs />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "home",
+        element: (
+          <ProtectedRoute>
+            <Home />
+          </ProtectedRoute>
+        ),
       },
       {
         path: "profile",
@@ -50,11 +70,6 @@ const router = createBrowserRouter([
           </ProtectedRoute>
         ),
       },
-      {
-        path: "*",
-        element: <NotFound />,
-      },
-
       {
         path: "savedPosts",
         element: (
@@ -87,28 +102,6 @@ const router = createBrowserRouter([
           </ProtectedRoute>
         ),
       },
-
-      {
-        path: "knowledgeCorner/:id",
-        element: (
-          <ProtectedRoute>
-            <SpecPost />
-          </ProtectedRoute>
-        ),
-      },
-
-      {
-        path: "admin/all-products",
-        element: <AllProducts />,
-      },
-      {
-        path: "admin/national-ids",
-        element: <AllNationalIds />,
-      },
-      {
-        path: "admin/add-product",
-        element: <AddProduct />,
-      },
       {
         path: "chatbot",
         element: (
@@ -126,41 +119,20 @@ const router = createBrowserRouter([
         ),
       },
       {
-        path: "chatbot",
+        path: "login",
         element: (
-          <ProtectedRoute>
-            <Chatbot />
-          </ProtectedRoute>
+          <PublicRoute>
+            <Login />
+          </PublicRoute>
         ),
       },
       {
-        path: "login",
-        element: <Login />,
-      },
-      {
-        path: "admin/login",
-        element: <AdminLogin />,
-      },
-
-      {
-        path: "admin/forgetPassword",
-        element: <AdminForgetPasssword />,
-      },
-      {
-        path: "admin/resetPassword",
-        element: <AdminResetPassword />,
-      },
-      {
-        path: "admin/flagged-posts",
-        element: <FlaggedPosts />,
-      },
-      {
-        path: "admin/dashboard",
-        element: <Dashboard />,
-      },
-      {
         path: "register",
-        element: <Register />,
+        element: (
+          <PublicRoute>
+            <Register />
+          </PublicRoute>
+        ),
       },
       {
         path: "forget-password",
@@ -171,50 +143,92 @@ const router = createBrowserRouter([
         element: <ResetPassword />,
       },
       {
-        path: "/post/:id",
+        path: "notifications",
+        element: <NotificationsPage />,
+      },
+      {
+        path: "post/:id",
         element: <SpecPost />,
+      },
+      {
+        path: "*",
+        element: <NotFound />,
+      },
+    ],
+  },
+  {
+    path: "admin",
+    children: [
+      {
+        index: true,
+        element: <AdminLogin />,
+      },
+      {
+        path: "login",
+        element: <AdminLogin />,
+      },
+      {
+        path: "forgetPassword",
+        element: <AdminForgetPassword />,
+      },
+      {
+        path: "resetPassword",
+        element: <AdminResetPassword />,
+      },
+      {
+        path: "",
+        element: (
+          <AdminProtectedRoute>
+            <AdminLayout />
+          </AdminProtectedRoute>
+        ),
+        children: [
+          {
+            path: "all-products",
+            element: <AllProducts />,
+          },
+          {
+            path: "national-ids",
+            element: <AllNationalIds />,
+          },
+          {
+            path: "add-product",
+            element: <AddProduct />,
+          },
+          {
+            path: "flagged-posts",
+            element: <FlaggedPosts />,
+          },
+          {
+            path: "dashboard",
+            element: <Dashboard />,
+          },
+        ],
+      },
+      {
+        path: "*",
+        element: <NotFound />,
       },
     ],
   },
 ]);
 
-// Create a wrapper component that combines AuthProvider and RouterProvider
+// Create a wrapper component that combines UserProvider and RouterProvider
 const AppWithProviders = () => {
   return (
-    <AuthProvider>
-      <RouterProvider router={router} />
-    </AuthProvider>
+    <div className="bg-white">
+      <UserProvider>
+        <AdminProvider>
+          <RouterProvider router={router} />
+        </AdminProvider>
+      </UserProvider>
+    </div>
   );
 };
 
 function App() {
   return (
-    <div className="min-h-screen bg-white">
-      <Toaster
-        position="top-center"
-        reverseOrder={false}
-        toastOptions={{
-          duration: 3000,
-          style: {
-            background: "#363636",
-            color: "#fff",
-            padding: "16px",
-            borderRadius: "8px",
-          },
-          success: {
-            duration: 3000,
-            theme: {
-              primary: "#4aed88",
-            },
-          },
-          error: {
-            duration: 3000,
-            theme: {
-              primary: "#ff4b4b",
-            },
-          },
-        }}
-      />
+    <div className="bg-white">
       <AppWithProviders />
     </div>
   );

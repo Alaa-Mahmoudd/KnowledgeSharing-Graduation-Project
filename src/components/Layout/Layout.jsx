@@ -1,18 +1,28 @@
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import Navbar from "../Navbar/Navbar";
 import Footer from "../Footer/Footer";
-import { useAuth } from "../../Context/AuthContext";
+import { useUser } from "../../Context/UserContext";
 
 export default function Layout() {
-  const { user } = useAuth();
-  if (user && user.role !== "user" && user.role !== "doctor") return null;
+  const { user } = useUser();
+
   return (
-    <div className="bg-White">
-      <Navbar />
-      <div className="container mx-auto">
-        <Outlet />
-      </div>
-      <Footer />
+    <div className="bg-[#E3ECE7] min-h-screen">
+      {user ? (
+        <>
+          <Navbar />
+          <div className="w-full">
+            <Outlet />
+          </div>
+          <Footer />
+        </>
+      ) : (
+        <div className="w-full">
+          <Outlet />
+        </div>
+      )}
     </div>
-  );
+  )
 }
+
+
