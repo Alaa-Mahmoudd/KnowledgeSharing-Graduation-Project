@@ -7,6 +7,20 @@ import axios from "axios";
 
 const API_URL = "https://knowledge-sharing-pied.vercel.app/notification";
 
+const notificationService = {
+    markAsRead: async (id, token) => {
+        try {
+            await axios.patch(`${API_URL}/${id}/read`, {}, {
+                headers: { token: token }
+            });
+            return true;
+        } catch (error) {
+            console.error("Failed to mark notification as read:", error);
+            return false;
+        }
+    }
+};
+
 const notificationIcons = {
     rate: <FaStar className="text-yellow-400" />,
     comment: <FaComment className="text-green-400" />,
@@ -64,7 +78,25 @@ export default function NotificationsPage() {
         return `${Math.floor(diffInSeconds / 86400)}d ago`;
     };
 
-    const handleNotificationClick = (notification) => {
+    const handleMarkAsRead = async (notificationId) => {
+        const notification = notifications.find(n => n._id === notificationId);
+        if (!notification || notification.isRead) return;
+
+        const success = await notificationService.markAsRead(notificationId, user.token);
+        if (success) {
+            setNotifications(notifications.map(n =>
+                n._id === notificationId ? { ...n, isRead: true } : n
+            ));
+        }
+    };
+
+    const handleNotificationClick = async (notification) => {
+        // Mark as read first if unread
+        if (!notification.isRead) {
+            await handleMarkAsRead(notification._id);
+        }
+
+        // Then navigate
         if (notification.postId?._id) {
             navigate(`/post/${notification.postId._id}`);
         } else if (notification.sender?._id) {
@@ -178,8 +210,6 @@ export default function NotificationsPage() {
                     </div>
                 )}
             </main>
-
-
         </div>
     );
 }

@@ -64,7 +64,7 @@ export default function AddPost() {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="max-w-3xl mx-auto p-6 min-h-screen bg-white rounded-xl shadow-sm border border-gray-100 mt-8 mb-12"
+      className="max-w-3xl mx-5 p-6 min-h-screen bg-white rounded-xl shadow-sm border border-gray-100 mt-8 mb-12 md:mx-auto"
     >
       <form onSubmit={handleSubmit} className="space-y-8">
         {/* Title Input with Enhanced Floating Label */}
