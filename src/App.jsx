@@ -3,8 +3,7 @@ import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import Home from "./components/Home/Home";
 import Layout from "./components/Layout/Layout";
 import NotFound from "./components/NotFound/NotFound";
-import Dashboard from "./components/Dashboard/Dashboard";
-import KnowledgeCorner from "./components/KnowledgeCorner/KnowledgeCorner";
+import Dashboard from "./components/Dashboard/Dashboard.jsx";
 import Chatbot from "./components/Chatbot/Chatbot";
 import Register from "./components/Register/Register.jsx";
 import Login from "./components/Login/Login.jsx";
@@ -17,6 +16,23 @@ import AboutUs from "./components/About/About.jsx";
 import Profile from "./components/Profile/Profile.jsx";
 import PublicRoute from "./components/PublicRoute/PublicRoute.jsx";
 import NotificationsPage from "./components/Notifications/NotificationsPage.jsx";
+import SpecPost from "./components/SpecPost/SpecPost.jsx";
+import SavedPosts from "./components/SavedPosts/SavedPosts.jsx";
+import AdminLogin from "./components/AdminLogin/AdminLogin.jsx";
+import AdminForgetPassword from "./components/AdminForgetPassword/AdminForgetPasssword.jsx";
+import AdminResetPassword from "./components/AdminResetPassword/AdminResetPassword.jsx";
+import AllNationalIds from "./components/AllNationalIds/AllNationalIds.jsx";
+import AllProducts from "./components/AllProducts/AllProducts.jsx";
+import AddProduct from "./components/AddProduct/AddProduct.jsx";
+import FlaggedPosts from "./components/FlaggedPosts/FlaggedPosts.jsx";
+import { toast } from "react-hot-toast";
+import Shop from "./components/Shop/Shop.jsx";
+import Post from "./components/Post/Post.jsx";
+import AddPost from "./components/AddPost/AddPost.jsx";
+import EditPost from "./components/EditPost/EditPost.jsx";
+import { AdminProvider } from "./Context/AdminContext.jsx";
+import AdminLayout from "./components/AdminLayout/AdminLayout.jsx";
+import AdminProtectedRoute from "./components/AdminProtectedRoute/AdminProtectedRoute.jsx";
 
 const router = createBrowserRouter([
   {
@@ -25,15 +41,19 @@ const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <PublicRoute>
-          <WelcomePage />
-        </PublicRoute>,
+        element: (
+          <PublicRoute>
+            <WelcomePage />
+          </PublicRoute>
+        ),
       },
       {
         path: "about",
-        element: <ProtectedRoute>
-          <AboutUs />
-        </ProtectedRoute>,
+        element: (
+          <ProtectedRoute>
+            <AboutUs />
+          </ProtectedRoute>
+        ),
       },
       {
         path: "home",
@@ -52,22 +72,34 @@ const router = createBrowserRouter([
         ),
       },
       {
-        path: "*",
-        element: <NotFound />,
-      },
-      {
-        path: "dashboard",
+        path: "savedPosts",
         element: (
           <ProtectedRoute>
-            <Dashboard />
+            <SavedPosts />
           </ProtectedRoute>
         ),
       },
       {
-        path: "knowledgeCorner",
+        path: "post",
         element: (
           <ProtectedRoute>
-            <KnowledgeCorner />
+            <Post />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "addPost",
+        element: (
+          <ProtectedRoute>
+            <AddPost />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "editPost/:postId",
+        element: (
+          <ProtectedRoute>
+            <EditPost />
           </ProtectedRoute>
         ),
       },
@@ -80,12 +112,28 @@ const router = createBrowserRouter([
         ),
       },
       {
+        path: "shop",
+        element: (
+          <ProtectedRoute>
+            <Shop />
+          </ProtectedRoute>
+        ),
+      },
+      {
         path: "login",
-        element: <PublicRoute><Login /></PublicRoute>,
+        element: (
+          <PublicRoute>
+            <Login />
+          </PublicRoute>
+        ),
       },
       {
         path: "register",
-        element: <PublicRoute><Register /></PublicRoute>,
+        element: (
+          <PublicRoute>
+            <Register />
+          </PublicRoute>
+        ),
       },
       {
         path: "forget-password",
@@ -98,7 +146,70 @@ const router = createBrowserRouter([
       {
         path: "notifications",
         element: <NotificationsPage />,
-      }
+      },
+      {
+        path: "post/:id",
+        element: <SpecPost />,
+      },
+      {
+        path: "*",
+        element: <NotFound />,
+      },
+    ],
+  },
+  {
+    path: "admin",
+    children: [
+      {
+        index: true,
+        element: <AdminLogin />,
+      },
+      {
+        path: "login",
+        element: <AdminLogin />,
+      },
+      {
+        path: "forgetPassword",
+        element: <AdminForgetPassword />,
+      },
+      {
+        path: "resetPassword",
+        element: <AdminResetPassword />,
+      },
+      {
+        path: "",
+        element: (
+          <AdminProtectedRoute>
+            <AdminLayout />
+          </AdminProtectedRoute>
+        ),
+        children: [
+          {
+            path: "all-products",
+            element: <AllProducts />,
+          },
+          {
+            path: "national-ids",
+            element: <AllNationalIds />,
+          },
+          {
+            path: "add-product",
+            element: <AddProduct />,
+          },
+          {
+            path: "flagged-posts",
+            element: <FlaggedPosts />,
+          },
+          {
+            path: "dashboard",
+            element: <Dashboard />,
+          },
+        ],
+      },
+      {
+        path: "*",
+        element: <NotFound />,
+      },
     ],
   },
 ]);
@@ -107,16 +218,18 @@ const router = createBrowserRouter([
 const AppWithProviders = () => {
   return (
     <UserProvider>
-      <RouterProvider router={router} />
+      <AdminProvider>
+        <RouterProvider router={router} />
+      </AdminProvider>
     </UserProvider>
   );
 };
 
 function App() {
   return (
-
-    <AppWithProviders />
-
+    <>
+      <AppWithProviders />
+    </>
   );
 }
 

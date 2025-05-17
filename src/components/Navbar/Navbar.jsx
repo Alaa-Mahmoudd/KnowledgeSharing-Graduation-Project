@@ -67,6 +67,7 @@ export default function Navbar() {
     setNotifications(data);
     setLoading(false);
   };
+
   const handleMarkAsRead = async (notificationId, e) => {
     e.stopPropagation(); // Prevent triggering the notification click
 
@@ -77,6 +78,7 @@ export default function Navbar() {
       ));
     }
   };
+
   const handleNotificationClick = (notification) => {
     if (notification.postId?._id) {
       navigate(`/post/${notification.postId._id}`);
@@ -102,9 +104,8 @@ export default function Navbar() {
 
   const navItems = [
     { path: "/home", label: "Home" },
-    { path: "/knowledgeCorner", label: "Posts" },
+    { path: "/post", label: "Posts" },
     { path: "/profile", label: "Profile" },
-    { path: "/dashboard", label: "Dashboard" }
   ];
 
   useEffect(() => {
@@ -122,7 +123,7 @@ export default function Navbar() {
             className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent cursor-pointer"
             onClick={() => navigate("/home")}
           >
-            HealthHub
+            Accesible Health Hub
           </motion.div>
 
           {/* Desktop Navigation */}
@@ -364,169 +365,168 @@ export default function Navbar() {
             >
               {mobileMenuOpen ? <FaTimes size={20} /> : <FaBars size={20} />}
             </motion.button>
+
+            {/* Mobile Menu */}
+            <AnimatePresence>
+              {mobileMenuOpen && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="md:hidden absolute top-16 left-0 right-0 bg-white/95 backdrop-blur-lg overflow-hidden border-t border-gray-100 shadow-lg"
+                >
+                  <div className="px-2 pt-2 pb-4 space-y-1">
+                    {navItems.map((item) => (
+                      <NavLink
+                        key={item.path}
+                        to={item.path}
+                        className={({ isActive }) =>
+                          `block px-3 py-3 rounded-lg text-base font-medium transition-colors ${isActive
+                            ? "bg-gradient-to-r from-blue-100 to-purple-100 text-blue-700"
+                            : "text-gray-700 hover:bg-gray-100/50"
+                          }`
+                        }
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
+                        {item.label}
+                      </NavLink>
+                    ))}
+                    <NavLink
+                      to="/notifications"
+                      className="block px-3 py-3 rounded-lg text-base font-medium text-gray-700 hover:bg-gray-100/50 flex items-center"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      Notifications
+                      {hasUnread && (
+                        <motion.span
+                          animate={{ scale: [1, 1.3, 1] }}
+                          transition={{ duration: 1.5, repeat: Infinity }}
+                          className="ml-2 inline-block h-2 w-2 rounded-full bg-red-500"
+                        ></motion.span>
+                      )}
+                    </NavLink>
+                    <motion.button
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => {
+                        clearUser();
+                        navigate("/login");
+                        setMobileMenuOpen(false);
+                      }}
+                      className="block w-full text-left px-3 py-3 rounded-lg text-base font-medium text-white bg-gradient-to-r from-red-500 to-pink-500 mt-2"
+                    >
+                      Logout
+                    </motion.button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Mobile Notifications Popup */}
+            <AnimatePresence>
+              {showNotifications && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="md:hidden fixed inset-0 z-40 bg-black/30 backdrop-blur-sm relative"
+                  onClick={() => setShowNotifications(false)}
+                >
+                  <motion.div
+                    initial={{ y: "100%" }}
+                    animate={{ y: 0 }}
+                    exit={{ y: "100%" }}
+                    transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                    className="absolute bottom-0 left-0 right-0 h-[85vh] bg-white rounded-t-3xl shadow-xl z-50 overflow-hidden"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="p-4 border-b flex justify-between items-center">
+                      <h3 className="font-semibold text-lg">Notifications</h3>
+                      <button onClick={() => setShowNotifications(false)}>
+                        <FaTimes size={20} className="text-gray-500 hover:text-gray-800" />
+                      </button>
+                    </div>
+
+                    <div className="h-full overflow-y-auto pb-20">
+                      {loading ? (
+                        <div className="p-8 flex flex-col items-center justify-center text-gray-500">
+                          <motion.div
+                            animate={{ rotate: 360 }}
+                            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                            className="rounded-full h-8 w-8 border-2 border-blue-500 border-t-transparent mb-2"
+                          ></motion.div>
+                          <p>Loading notifications...</p>
+                        </div>
+                      ) : notifications.length > 0 ? (
+                        <ul className="divide-y divide-gray-100">
+                          {notifications.map((notification) => (
+                            <motion.li
+                              key={notification._id}
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ duration: 0.3 }}
+                              onClick={() => handleNotificationClick(notification)}
+                              className={`p-4 ${!notification.isRead ? "bg-blue-50/50" : "hover:bg-gray-50/50"}`}
+                            >
+                              <div className="flex items-start">
+                                <div className="flex-shrink-0 pt-1 text-2xl">
+                                  {notificationIcons[notification.type] || notificationIcons.default}
+                                </div>
+                                <div className="ml-3 flex-1 min-w-0">
+                                  <div className="flex justify-between items-baseline">
+                                    <p className={`text-sm font-semibold ${!notification.isRead ? "text-gray-900" : "text-gray-700"}`}>
+                                      {notification.sender?.name || "System"}
+                                    </p>
+                                    <p className="text-xs text-gray-400 ml-2 whitespace-nowrap">
+                                      {formatDate(notification.createdAt)}
+                                    </p>
+                                  </div>
+                                  <p className="text-sm text-gray-600 mt-1">
+                                    {notificationMessages[notification.type]?.(
+                                      notification.sender?.name || "Someone",
+                                      notification.postId?.title || "your post"
+                                    ) || notificationMessages.default()}
+                                  </p>
+                                  {notification.postId?.title && (
+                                    <div className="mt-2 flex items-center">
+                                      <span className="inline-block px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-600">
+                                        {notification.postId.title}
+                                      </span>
+                                      <FaChevronRight className="ml-1 text-xs text-gray-400" />
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </motion.li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <div className="p-8 text-center text-gray-500">
+                          <FaRegBell className="mx-auto text-3xl text-gray-300 mb-2" />
+                          <p>No notifications yet</p>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="absolute bottom-0 left-0 right-0 p-4 border-t bg-white">
+                      <motion.button
+                        whileHover={{ scale: 1.03 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => {
+                          navigate("/notifications");
+                          setShowNotifications(false);
+                        }}
+                        className="w-full py-3 px-4 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-lg shadow-md hover:shadow-lg transition-all"
+                      >
+                        View All Notifications
+                      </motion.button>
+                    </div>
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
       </div>
-
-      {/* Mobile Menu */}
-      <AnimatePresence>
-        {mobileMenuOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="md:hidden bg-white/95 backdrop-blur-lg overflow-hidden border-t border-gray-100"
-          >
-            <div className="px-2 pt-2 pb-4 space-y-1">
-              {navItems.map((item) => (
-                <NavLink
-                  key={item.path}
-                  to={item.path}
-                  className={({ isActive }) =>
-                    `block px-3 py-3 rounded-lg text-base font-medium transition-colors ${isActive
-                      ? "bg-gradient-to-r from-blue-100 to-purple-100 text-blue-700"
-                      : "text-gray-700 hover:bg-gray-100/50"
-                    }`
-                  }
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  {item.label}
-                </NavLink>
-              ))}
-              <NavLink
-                to="/notifications"
-                className="block px-3 py-3 rounded-lg text-base font-medium text-gray-700 hover:bg-gray-100/50 flex items-center"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Notifications
-                {hasUnread && (
-                  <motion.span
-                    animate={{ scale: [1, 1.3, 1] }}
-                    transition={{ duration: 1.5, repeat: Infinity }}
-                    className="ml-2 inline-block h-2 w-2 rounded-full bg-red-500"
-                  ></motion.span>
-                )}
-              </NavLink>
-              <motion.button
-                whileTap={{ scale: 0.98 }}
-                onClick={() => {
-                  clearUser();
-                  navigate("/login");
-                  setMobileMenuOpen(false);
-                }}
-                className="block w-full text-left px-3 py-3 rounded-lg text-base font-medium text-white bg-gradient-to-r from-red-500 to-pink-500 mt-2"
-              >
-                Logout
-              </motion.button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Mobile Notifications Popup */}
-      <AnimatePresence>
-        {showNotifications && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="md:hidden fixed inset-0 z-40 bg-black/30 backdrop-blur-sm relative"
-            onClick={() => setShowNotifications(false)}
-          >
-            <motion.div
-              initial={{ y: "100%" }}
-              animate={{ y: 0 }}
-              exit={{ y: "100%" }}
-              transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="absolute bottom-0 left-0 right-0 h-[85vh] bg-white rounded-t-3xl shadow-xl z-50 overflow-hidden"
-              onClick={(e) => e.stopPropagation()}
-            >
-
-              <div className="p-4 border-b flex justify-between items-center">
-                <h3 className="font-semibold text-lg">Notifications</h3>
-                <button onClick={() => setShowNotifications(false)}>
-                  <FaTimes size={20} className="text-gray-500 hover:text-gray-800" />
-                </button>
-              </div>
-
-              <div className="h-full overflow-y-auto pb-20">
-                {loading ? (
-                  <div className="p-8 flex flex-col items-center justify-center text-gray-500">
-                    <motion.div
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                      className="rounded-full h-8 w-8 border-2 border-blue-500 border-t-transparent mb-2"
-                    ></motion.div>
-                    <p>Loading notifications...</p>
-                  </div>
-                ) : notifications.length > 0 ? (
-                  <ul className="divide-y divide-gray-100">
-                    {notifications.map((notification) => (
-                      <motion.li
-                        key={notification._id}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.3 }}
-                        onClick={() => handleNotificationClick(notification)}
-                        className={`p-4 ${!notification.isRead ? "bg-blue-50/50" : "hover:bg-gray-50/50"}`}
-                      >
-                        <div className="flex items-start">
-                          <div className="flex-shrink-0 pt-1 text-2xl">
-                            {notificationIcons[notification.type] || notificationIcons.default}
-                          </div>
-                          <div className="ml-3 flex-1 min-w-0">
-                            <div className="flex justify-between items-baseline">
-                              <p className={`text-sm font-semibold ${!notification.isRead ? "text-gray-900" : "text-gray-700"}`}>
-                                {notification.sender?.name || "System"}
-                              </p>
-                              <p className="text-xs text-gray-400 ml-2 whitespace-nowrap">
-                                {formatDate(notification.createdAt)}
-                              </p>
-                            </div>
-                            <p className="text-sm text-gray-600 mt-1">
-                              {notificationMessages[notification.type]?.(
-                                notification.sender?.name || "Someone",
-                                notification.postId?.title || "your post"
-                              ) || notificationMessages.default()}
-                            </p>
-                            {notification.postId?.title && (
-                              <div className="mt-2 flex items-center">
-                                <span className="inline-block px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-600">
-                                  {notification.postId.title}
-                                </span>
-                                <FaChevronRight className="ml-1 text-xs text-gray-400" />
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </motion.li>
-                    ))}
-                  </ul>
-                ) : (
-                  <div className="p-8 text-center text-gray-500">
-                    <FaRegBell className="mx-auto text-3xl text-gray-300 mb-2" />
-                    <p>No notifications yet</p>
-                  </div>
-                )}
-              </div>
-
-              <div className="absolute bottom-0 left-0 right-0 p-4 border-t bg-white">
-                <motion.button
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => {
-                    navigate("/notifications");
-                    setShowNotifications(false);
-                  }}
-                  className="w-full py-3 px-4 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-lg shadow-md hover:shadow-lg transition-all"
-                >
-                  View All Notifications
-                </motion.button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </nav>
   );
 }

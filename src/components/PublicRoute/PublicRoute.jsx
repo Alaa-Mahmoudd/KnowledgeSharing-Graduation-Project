@@ -6,10 +6,10 @@ import { useUser } from "../../Context/UserContext";
 const PublicRoute = (props) => {
     const { user, isUserLoading } = useUser();
 
- 
+
 
     if (!user?.token) {
-        return props.children; // يعرض صفحات login أو register
+        return props.children;
     } else {
         return <Navigate to={'/home'} />;
     }
