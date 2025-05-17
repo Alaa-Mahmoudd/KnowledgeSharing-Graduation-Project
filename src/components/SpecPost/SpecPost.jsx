@@ -8,6 +8,7 @@ import { MdDelete } from "react-icons/md";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { FaRegCommentDots } from "react-icons/fa";
+
 export default function SpecPost() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -22,6 +23,16 @@ export default function SpecPost() {
   const [likeCounts, setLikeCounts] = useState({});
   const [saveCounts, setSaveCounts] = useState({});
   const [ratingCounts, setRatingCounts] = useState({});
+  const token = localStorage.getItem("token");
+  // ✅ Load interactions from localStorage
+  useEffect(() => {
+    const storedLikes = JSON.parse(localStorage.getItem("likes")) || {};
+    const storedSaves = JSON.parse(localStorage.getItem("saves")) || {};
+    const storedRatings = JSON.parse(localStorage.getItem("ratings")) || {};
+    setLikeCounts(storedLikes);
+    setSaveCounts(storedSaves);
+    setRatingCounts(storedRatings);
+  }, []);
 
   const fetchPost = async () => {
     try {
@@ -41,9 +52,8 @@ export default function SpecPost() {
     fetchPost();
   }, [id]);
 
+  // ✅ Handle delete post
   const handleDeletePost = async (postId) => {
-    const token = localStorage.getItem("token");
-
     try {
       await axios.delete(
         `https://knowledge-sharing-pied.vercel.app/post/delete/${postId}`,
@@ -54,7 +64,7 @@ export default function SpecPost() {
         }
       );
       toast.success("Post deleted successfully!");
-      navigate("/");
+      await getAllPosts();
     } catch (error) {
       toast.error("Failed to delete post. Try again.");
       console.error("Delete post error:", error);
@@ -63,11 +73,13 @@ export default function SpecPost() {
   // ✅ Like
   const handleLikePost = async (postId) => {
     setIsLoadingLike(true);
-    if (likeCounts[postId]) {
+
+    if (likeCounts[postId] >= 1) {
       toast.info("You already liked this post.");
       setIsLoadingLike(false);
       return;
     }
+
     try {
       await axios.post(
         `https://knowledge-sharing-pied.vercel.app/interaction/${postId}/like`,
@@ -78,9 +90,15 @@ export default function SpecPost() {
           },
         }
       );
-      const updatedLikes = { ...likeCounts, [postId]: true };
+
+      const updatedLikes = {
+        ...likeCounts,
+        [postId]: (likeCounts[postId] || 0) + 1,
+      };
+
       setLikeCounts(updatedLikes);
       localStorage.setItem("likes", JSON.stringify(updatedLikes));
+
       toast.success("Post liked!");
     } catch (error) {
       toast.error("Failed to like post.");
@@ -88,7 +106,6 @@ export default function SpecPost() {
       setIsLoadingLike(false);
     }
   };
-
   // ✅ Save
   const handleSavePost = async (postId) => {
     setIsLoadingSave(true);
@@ -117,58 +134,49 @@ export default function SpecPost() {
       setIsLoadingSave(false);
     }
   };
-
-  // ✅ Rate
-  const handleRatePost = async (postId, rating) => {
-    setIsLoadingRate(true);
-    if (ratingCounts[postId]) {
-      toast.info("You already rated this post.");
-      setIsLoadingRate(false);
-      return;
-    }
+  // ✅ get like counts for all posts
+  useEffect(() => {
+    posts.forEach((post) => {
+      getLikesCount(post._id);
+    });
+  }, [posts]);
+  // ✅ get like counts
+  const getLikesCount = async (postId) => {
     try {
-      await axios.post(
-        `https://knowledge-sharing-pied.vercel.app/interaction/${postId}/rate`,
-        { rating },
-        {
-          headers: {
-            token: `noteApp__${token}`,
-          },
-        }
+      const response = await axios.get(
+        `https://knowledge-sharing-pied.vercel.app/interaction/${postId}/likes_count`
       );
-      const updatedRatings = { ...ratingCounts, [postId]: rating };
-      setRatingCounts(updatedRatings);
-      localStorage.setItem("ratings", JSON.stringify(updatedRatings));
-      toast.success("Post rated!");
-    } catch (error) {
-      toast.error("Failed to rate post.");
-    } finally {
-      setIsLoadingRate(false);
-    }
-  };
-  // ✅ get like counts and rating counts
-  const getPostCounts = async (postId) => {
-    try {
-      const { data: likeData } = await axios.get(
-        `https://knowledge-sharing-pied.vercel.app/interaction/${postId}/likes_count`,
-        {
-          headers: { token: `noteApp__${token}` },
-        }
-      );
-      const { data: ratingData } = await axios.get(
-        `https://knowledge-sharing-pied.vercel.app/interaction/${postId}/ratings_count`,
-        {
-          headers: { token: `noteApp__${token}` },
-        }
-      );
-      setLikeCounts((prev) => ({ ...prev, [postId]: likeData.likesCount }));
-      setRatingCounts((prev) => ({
-        ...prev,
-        [postId]: ratingData.ratingsCount,
+      setLikeCounts((prevCounts) => ({
+        ...prevCounts,
+        [postId]: response.data.likesCount,
       }));
     } catch (error) {
-      console.error("Error fetching like or rating counts:", error);
+      console.error("Error fetching like count:", error);
     }
+  };
+
+  // Fetch ratings count for a post
+  const getRatingsCount = async (postId) => {
+    try {
+      const response = await axios.get(
+        `https://knowledge-sharing-pied.vercel.app/interaction/${postId}/ratings_count`
+      );
+      setRatingCounts((prevCounts) => ({
+        ...prevCounts,
+        [postId]: response.data.ratingCounts,
+      }));
+    } catch (error) {
+      console.error("Error fetching ratings count:", error);
+    }
+  };
+  // ✅ Get user info from localStorage (assumed token contains user info)
+  const getUserFromToken = () => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      const userData = JSON.parse(atob(token.split(".")[1])); // Decode the JWT to get user data
+      return userData; // Assuming it contains user info like id
+    }
+    return null;
   };
   const speakText = (title, content) => {
     const text = `${title}. ${content}`;
@@ -227,28 +235,6 @@ export default function SpecPost() {
               <div
                 onClick={(e) => {
                   e.stopPropagation();
-                  const userRating = prompt("Rate this post from 1 to 5:");
-                  const ratingValue = parseInt(userRating);
-                  if (ratingValue >= 1 && ratingValue <= 5) {
-                    handleRatePost(post._id, ratingValue);
-                  } else {
-                    toast.error("Invalid rating. Please enter 1 to 5.");
-                  }
-                }}
-                className="flex cursor-pointer items-center gap-1"
-              >
-                <FaStar
-                  className={`text-gray-500 ${
-                    ratingCounts[post._id] ? "text-yellow-400" : ""
-                  }`}
-                  title="Rate"
-                />
-                {new Date(post.createdAt).toLocaleDateString()}
-              </div>
-
-              <div
-                onClick={(e) => {
-                  e.stopPropagation();
                   handleLikePost(post._id);
                 }}
                 className={`flex cursor-pointer items-center gap-1 ${
@@ -257,6 +243,7 @@ export default function SpecPost() {
                 title="Like"
               >
                 <BiSolidLike />
+                <span className="text-black">{likeCounts[post._id] || 0}</span>
               </div>
 
               <div
@@ -283,11 +270,14 @@ export default function SpecPost() {
                 <FaBookmark />
               </div>
             </div>
-
             <div className="flex gap-2">
               <button
                 onClick={(e) => {
                   e.stopPropagation();
+                  if (user?.id !== post.author?._id) {
+                    toast.error("You can't update a post that is not yours.");
+                    return;
+                  }
                   navigate(`/editPost/${post._id}`);
                 }}
                 className="cursor-pointer text-gray-500 hover:text-blue-800"
@@ -299,6 +289,108 @@ export default function SpecPost() {
               <button
                 onClick={(e) => {
                   e.stopPropagation();
+                  if (user?.id !== post.author?._id) {
+                    toast.error("You can't delete a post that is not yours.");
+                    return;
+                  }
+                  handleDeletePost(post._id);
+                }}
+                className="cursor-pointer text-gray-500 hover:text-red-800"
+                title="Delete"
+              >
+                <MdDelete size={20} />
+              </button>
+            </div>
+          </div>
+
+          <div className="flex justify-between text-gray-500 mt-4">
+            <div className="flex items-center text-sm gap-4">
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const userRating = prompt("Rate this post from 1 to 5:");
+                  const ratingValue = parseInt(userRating);
+                  if (ratingValue >= 1 && ratingValue <= 5) {
+                    handleRatePost(post._id, ratingValue);
+                  } else {
+                    toast.error("Invalid rating. Please enter 1 to 5.");
+                  }
+                }}
+                className="flex cursor-pointer items-center gap-1"
+              >
+                <FaStar
+                  className={`text-gray-500 ${
+                    ratingCounts[post._id] ? "text-yellow-400" : ""
+                  }`}
+                  title="Rate"
+                />
+                <span className="text-black mr-5">
+                  {ratingCounts[post._id] || 0}
+                </span>
+                {new Date(post.createdAt).toLocaleDateString()}
+              </div>
+
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleLikePost(post._id);
+                }}
+                className={`flex cursor-pointer items-center gap-1 ${
+                  likeCounts[post._id] ? "text-blue-500" : ""
+                }`}
+                title="Like"
+              >
+                <BiSolidLike />
+                <span className="text-black">{likeCounts[post._id] || 0}</span>
+              </div>
+
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toast.info("Comments coming soon!");
+                }}
+                className="flex items-center cursor-pointer gap-1"
+                title="Comment"
+              >
+                <FaRegCommentDots />
+              </div>
+
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSavePost(post._id);
+                }}
+                className={`cursor-pointer flex items-center gap-1 ${
+                  saveCounts[post._id] ? "text-green-500" : ""
+                }`}
+                title="Save"
+              >
+                <FaBookmark />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (user?.id !== post.author?._id) {
+                    toast.error("You can't update a post that is not yours.");
+                    return;
+                  }
+                  navigate(`/editPost/${post._id}`);
+                }}
+                className="cursor-pointer text-gray-500 hover:text-blue-800"
+                title="Edit"
+              >
+                <FaEdit size={20} />
+              </button>
+
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (user?.id !== post.author?._id) {
+                    toast.error("You can't delete a post that is not yours.");
+                    return;
+                  }
                   handleDeletePost(post._id);
                 }}
                 className="cursor-pointer text-gray-500 hover:text-red-800"

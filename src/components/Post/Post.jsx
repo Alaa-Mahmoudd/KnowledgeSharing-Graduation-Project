@@ -13,6 +13,7 @@ import { ThreeDots } from "react-loader-spinner";
 import { MdDelete } from "react-icons/md";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+
 export default function Post() {
   const [posts, setPosts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -23,6 +24,13 @@ export default function Post() {
   const [likeCounts, setLikeCounts] = useState({});
   const [saveCounts, setSaveCounts] = useState({});
   const [ratingCounts, setRatingCounts] = useState({});
+  const [comments, setComments] = useState(() => {
+    const savedComments = localStorage.getItem("comments");
+    return savedComments ? JSON.parse(savedComments) : {};
+  });
+  const [text, setText] = useState("");
+  const [parentId, setParentId] = useState(null);
+  const [showComments, setShowComments] = useState({});
   const navigate = useNavigate();
 
   const token = localStorage.getItem("token");
@@ -53,7 +61,21 @@ export default function Post() {
   };
 
   useEffect(() => {
-    getAllPosts();
+    const loadInitialData = async () => {
+      await getAllPosts();
+
+      // Load comments for all posts initially
+      const initialComments =
+        JSON.parse(localStorage.getItem("comments")) || {};
+      setComments(initialComments);
+
+      // Fetch fresh comments for all posts
+      posts.forEach((post) => {
+        fetchComments(post._id);
+      });
+    };
+
+    loadInitialData();
   }, []);
 
   // ✅ Handle delete post
@@ -77,6 +99,12 @@ export default function Post() {
 
   // ✅ Like
   const handleLikePost = async (postId) => {
+    if (!token) {
+      toast.error("Please login to like posts");
+      navigate("/login");
+      return;
+    }
+
     setIsLoadingLike(true);
 
     if (likeCounts[postId] >= 1) {
@@ -114,6 +142,12 @@ export default function Post() {
 
   // ✅ Save
   const handleSavePost = async (postId) => {
+    if (!token) {
+      toast.error("Please login to save posts");
+      navigate("/login");
+      return;
+    }
+
     setIsLoadingSave(true);
     if (saveCounts[postId]) {
       toast.info("You already saved this post.");
@@ -141,40 +175,13 @@ export default function Post() {
     }
   };
 
-  // ✅ Rate
-  const handleRatePost = async (postId, rating) => {
-    setIsLoadingRate(true);
-    if (ratingCounts[postId]) {
-      toast.info("You already rated this post.");
-      setIsLoadingRate(false);
-      return;
-    }
-    try {
-      await axios.post(
-        `https://knowledge-sharing-pied.vercel.app/interaction/${postId}/rate`,
-        { rating },
-        {
-          headers: {
-            token: `noteApp__${token}`,
-          },
-        }
-      );
-      const updatedRatings = { ...ratingCounts, [postId]: rating };
-      setRatingCounts(updatedRatings);
-      localStorage.setItem("ratings", JSON.stringify(updatedRatings));
-      toast.success("Post rated!");
-    } catch (error) {
-      toast.error("Failed to rate post.");
-    } finally {
-      setIsLoadingRate(false);
-    }
-  };
   // ✅ get like counts for all posts
   useEffect(() => {
     posts.forEach((post) => {
       getLikesCount(post._id);
     });
   }, [posts]);
+
   // ✅ get like counts
   const getLikesCount = async (postId) => {
     try {
@@ -190,40 +197,171 @@ export default function Post() {
     }
   };
 
-  // Fetch ratings count for a post
-  const getRatingsCount = async (postId) => {
-    try {
-      const response = await axios.get(
-        `https://knowledge-sharing-pied.vercel.app/interaction/${postId}/ratings_count`
-      );
-      setRatingCounts((prevCounts) => ({
-        ...prevCounts,
-        [postId]: response.data.ratingCounts,
-      }));
-    } catch (error) {
-      console.error("Error fetching ratings count:", error);
-    }
-  };
-  // ✅ Get user info from localStorage (assumed token contains user info)
+  // ✅ Get user info from token
   const getUserFromToken = () => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      const userData = JSON.parse(atob(token.split(".")[1])); // Decode the JWT to get user data
-      return userData; // Assuming it contains user info like id
+    if (!token) return null;
+    try {
+      const userData = JSON.parse(atob(token.split(".")[1]));
+      return userData;
+    } catch (error) {
+      console.error("Error parsing token:", error);
+      return null;
     }
-    return null;
   };
 
   const user = getUserFromToken();
+
   const speakText = (title, content) => {
-    const text = `${title}. ${content}`;
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = "en-US";
-    utterance.pitch = 1;
-    utterance.rate = 1;
-    window.speechSynthesis.speak(utterance);
+    if ("speechSynthesis" in window) {
+      const text = `${title}. ${content}`;
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = "en-US";
+      utterance.pitch = 1;
+      utterance.rate = 1;
+      window.speechSynthesis.speak(utterance);
+    } else {
+      toast.warning("Text-to-speech not supported in your browser");
+    }
   };
 
+  // Comments functions
+
+  const toggleComments = async (postId) => {
+    setShowComments((prev) => ({
+      ...prev,
+      [postId]: !prev[postId],
+    }));
+
+    if (
+      !showComments[postId] &&
+      (!comments[postId] || comments[postId].length === 0)
+    ) {
+      await fetchComments(postId);
+    }
+  };
+  const fetchComments = async (postId) => {
+    try {
+      const res = await axios.get(
+        `https://knowledge-sharing-pied.vercel.app/comment/${postId}/get`
+      );
+
+      setComments((prev) => {
+        const newComments = {
+          ...prev,
+          [postId]: res.data.comments || [],
+        };
+        localStorage.setItem("comments", JSON.stringify(newComments));
+        return newComments;
+      });
+    } catch (error) {
+      console.error("Error fetching comments:", error);
+    }
+  };
+
+  const handleAddComment = async (e, postId) => {
+    e.preventDefault();
+    if (!text.trim()) return;
+    if (!token) {
+      toast.error("Please login to comment");
+      navigate("/login");
+      return;
+    }
+
+    try {
+      const { data } = await axios.post(
+        `https://knowledge-sharing-pied.vercel.app/comment/${postId}/add`,
+        {
+          text,
+          parent_comment: parentId || null,
+        },
+        {
+          headers: {
+            token: `noteApp__${token}`,
+          },
+        }
+      );
+
+      setText("");
+      setParentId(null);
+
+      setComments((prev) => {
+        const newComments = {
+          ...prev,
+          [postId]: [data.comment, ...(prev[postId] || [])],
+        };
+        localStorage.setItem("comments", JSON.stringify(newComments));
+        return newComments;
+      });
+
+      toast.success("Comment added successfully!");
+    } catch (error) {
+      console.error("Error adding comment:", error);
+      toast.error("Failed to add comment");
+    }
+  };
+  // ✅ Handle delete comment
+  const handleDeleteComment = async (commentId, postId) => {
+    if (!token) {
+      return;
+    }
+
+    try {
+      await axios.delete(
+        `https://knowledge-sharing-pied.vercel.app/comment/${commentId}/delete`,
+        {
+          headers: {
+            token: `noteApp__${token}`,
+          },
+        }
+      );
+
+      // Update comments state
+      setComments((prev) => {
+        const updatedComments = {
+          ...prev,
+          [postId]: prev[postId].filter((comment) => comment._id !== commentId),
+        };
+        localStorage.setItem("comments", JSON.stringify(updatedComments));
+        return updatedComments;
+      });
+
+      toast.success("Comment deleted successfully!");
+    } catch (error) {
+      console.error("Error deleting comment:", error);
+      toast.error("Failed to delete comment");
+    }
+  };
+  const renderComments = (commentsArray, postId, parent = null) => {
+    if (!commentsArray) return null;
+
+    return commentsArray
+      .filter((c) => c.parent_comment === parent)
+      .map((c) => (
+        <div key={c._id} className={`ml-${parent ? "6" : "0"} mt-4`}>
+          <div className="flex gap-3 items-start">
+            <div className="bg-purple-700 text-white w-8 h-8 flex items-center justify-center rounded-full text-sm font-bold">
+              {c.userId?.username?.charAt(0) || "U"}
+            </div>
+            <div className="bg-gray-100 rounded-lg px-4 py-2 w-full relative">
+              <p className="text-sm pr-6">{c.text}</p>
+
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteComment(c._id, postId);
+                }}
+                className="absolute top-2 right-2 text-red-500 hover:text-red-700"
+                title="Delete comment"
+              >
+                Delete
+              </button>
+
+              {renderComments(commentsArray, postId, c._id)}
+            </div>
+          </div>
+        </div>
+      ));
+  };
   // ✅ Loading
   if (isLoading) {
     return (
@@ -252,65 +390,50 @@ export default function Post() {
         className="w-full mb-8 px-4 py-3 border border-gray-300 rounded-lg shadow-sm cursor-pointer hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
       />
 
+      {posts.length === 0 && !isLoading && (
+        <div className="text-center py-10">
+          <p className="text-gray-500">No posts available yet.</p>
+        </div>
+      )}
+
       {posts.map((post) => (
         <div
           key={post._id}
-          onClick={() => navigate(`/post/${post._id}`)}
-          className="bg-white border-b border-gray-200 p-6 mb-8 duration-300 flex flex-col md:flex-row justify-between items-start gap-6 cursor-pointer"
+          className="bg-white border-b border-gray-200 p-6 mb-8 duration-300 flex flex-col md:flex-row justify-between items-start gap-6"
         >
-          <div className="flex-1">
-            <div className="text-sm text-gray-500 mb-1 flex">
-              <div className="mr-1">by</div>
-              <span className="font-medium">
-                {post.author?.name || "Unknown"}
-              </span>
-            </div>
-            <h2 className="text-2xl md:text-3xl font-bold text-gray-900 leading-snug mb-2">
-              {post.title}
-            </h2>
-            <p className="text-gray-700 text-base mb-4">
-              {post.content.length > 150
-                ? post.content.slice(0, 150) + "..."
-                : post.content}
-            </p>
-
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                speakText(post.title, post.content);
-              }}
-              className="text-gray-500 hover:text-blue-800"
+          <div className="flex-1 w-full">
+            <div
+              onClick={() => navigate(`/post/${post._id}`)}
+              className="cursor-pointer"
             >
-              <span className="cursor-pointer">🎙️ Read Aloud</span>
-            </button>
+              <div className="text-sm text-gray-500 mb-1 flex">
+                <div className="mr-1">by</div>
+                <span className="font-medium">
+                  {post.author?.name || "Unknown"}
+                </span>
+              </div>
+              <h2 className="text-2xl md:text-3xl font-bold text-gray-900 leading-snug mb-2">
+                {post.title}
+              </h2>
+              <p className="text-gray-700 text-base mb-4">
+                {post.content.length > 150
+                  ? post.content.slice(0, 150) + "..."
+                  : post.content}
+              </p>
+
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  speakText(post.title, post.content);
+                }}
+                className="text-gray-500 hover:text-blue-800"
+              >
+                <span className="cursor-pointer">🎙️ Read Aloud</span>
+              </button>
+            </div>
 
             <div className="flex justify-between text-gray-500 mt-4">
               <div className="flex items-center text-sm gap-4">
-                <div
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    const userRating = prompt("Rate this post from 1 to 5:");
-                    const ratingValue = parseInt(userRating);
-                    if (ratingValue >= 1 && ratingValue <= 5) {
-                      handleRatePost(post._id, ratingValue);
-                    } else {
-                      toast.error("Invalid rating. Please enter 1 to 5.");
-                    }
-                  }}
-                  className="flex cursor-pointer items-center gap-1"
-                >
-                  <FaStar
-                    className={`text-gray-500 ${
-                      ratingCounts[post._id] ? "text-yellow-400" : ""
-                    }`}
-                    title="Rate"
-                  />
-                  <span className="text-black mr-5">
-                    {ratingCounts[post._id] || 0}
-                  </span>
-                  {new Date(post.createdAt).toLocaleDateString()}
-                </div>
-
                 <div
                   onClick={(e) => {
                     e.stopPropagation();
@@ -330,14 +453,16 @@ export default function Post() {
                 <div
                   onClick={(e) => {
                     e.stopPropagation();
-                    toast.info("Comments coming soon!");
+                    toggleComments(post._id);
                   }}
                   className="flex items-center cursor-pointer gap-1"
                   title="Comment"
                 >
                   <FaRegCommentDots />
+                  <span className="text-black">
+                    {comments[post._id]?.length || 0}
+                  </span>
                 </div>
-
                 <div
                   onClick={(e) => {
                     e.stopPropagation();
@@ -352,37 +477,61 @@ export default function Post() {
                 </div>
               </div>
               <div className="flex gap-2">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (user?.id !== post.author?._id) {
-                      toast.error("You can't update a post that is not yours.");
-                      return;
-                    }
-                    navigate(`/editPost/${post._id}`);
-                  }}
-                  className="cursor-pointer text-gray-500 hover:text-blue-800"
-                  title="Edit"
-                >
-                  <FaEdit size={20} />
-                </button>
+                {user?.id === post.author?._id && (
+                  <>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/editPost/${post._id}`);
+                      }}
+                      className="cursor-pointer text-gray-500 hover:text-blue-800"
+                      title="Edit"
+                    >
+                      <FaEdit size={20} />
+                    </button>
 
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (user?.id !== post.author?._id) {
-                      toast.error("You can't delete a post that is not yours.");
-                      return;
-                    }
-                    handleDeletePost(post._id);
-                  }}
-                  className="cursor-pointer text-gray-500 hover:text-red-800"
-                  title="Delete"
-                >
-                  <MdDelete size={20} />
-                </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeletePost(post._id);
+                      }}
+                      className="cursor-pointer text-gray-500 hover:text-red-800"
+                      title="Delete"
+                    >
+                      <MdDelete size={20} />
+                    </button>
+                  </>
+                )}
               </div>
             </div>
+
+            {/* Comments Section */}
+            {showComments[post._id] && (
+              <div className="mt-6 border-t pt-4 w-full">
+                <div className="mb-4">
+                  {renderComments(comments[post._id], post._id)}
+                </div>
+
+                <form
+                  onSubmit={(e) => handleAddComment(e, post._id)}
+                  className="flex gap-2"
+                >
+                  <input
+                    type="text"
+                    value={text}
+                    onChange={(e) => setText(e.target.value)}
+                    placeholder="Write a comment..."
+                    className="flex-1 border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  />
+                  <button
+                    type="submit"
+                    className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
+                  >
+                    Post
+                  </button>
+                </form>
+              </div>
+            )}
 
             {/* Files */}
             {post.files?.urls?.length > 0 && (
@@ -409,7 +558,8 @@ export default function Post() {
             <img
               src={post.thumbnail}
               alt={post.title}
-              className="w-48 h-32 object-cover rounded-md"
+              className="w-48 h-32 object-cover rounded-md cursor-pointer"
+              onClick={() => navigate(`/post/${post._id}`)}
             />
           )}
         </div>

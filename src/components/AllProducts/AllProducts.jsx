@@ -3,7 +3,6 @@ import axios from "axios";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { ThreeDots } from "react-loader-spinner";
-
 export default function AllProducts() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -16,6 +15,7 @@ export default function AllProducts() {
     link: "",
   });
   const [productImage, setProductImage] = useState(null);
+  const [editingProduct, setEditingProduct] = useState(null);
 
   const token = localStorage.getItem("adminToken");
 
@@ -66,7 +66,7 @@ export default function AllProducts() {
     formData.append("link", newProduct.link);
 
     try {
-      const res = await axios.post(
+      await axios.post(
         "https://knowledge-sharing-pied.vercel.app/admin/",
         formData,
         {
@@ -77,15 +77,77 @@ export default function AllProducts() {
         }
       );
 
-      toast.success("Product added successfully ✅");
+      toast.success("Product added successfully ");
       fetchProducts();
-      setShowForm(false);
-      setNewProduct({ name: "", description: "", price: "", link: "" });
-      setProductImage(null);
+      resetForm();
     } catch (err) {
       console.error(err);
-      toast.error(err?.response?.data?.message || "Failed to add product ❌");
+      toast.error(err?.response?.data?.message || "Failed to add product ");
     }
+  };
+
+  const handleEdit = (product) => {
+    setEditingProduct(product);
+    setNewProduct({
+      name: product.name,
+      description: product.description,
+      price: product.price,
+      link: product.link,
+    });
+    setShowForm(true);
+  };
+
+  const handleUpdateProduct = async (e) => {
+    e.preventDefault();
+
+    const formData = new FormData();
+    if (productImage) formData.append("productImage", productImage);
+    if (newProduct.name) formData.append("name", newProduct.name);
+    if (newProduct.description)
+      formData.append("description", newProduct.description);
+    if (newProduct.price) formData.append("price", newProduct.price);
+    if (newProduct.link) formData.append("link", newProduct.link);
+
+    try {
+      const res = await axios.put(
+        `https://knowledge-sharing-pied.vercel.app/admin/${editingProduct._id}`,
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+            token,
+          },
+        }
+      );
+
+      toast.success("Product updated successfully");
+
+      setProducts((prev) =>
+        prev.map((p) =>
+          p._id === editingProduct._id
+            ? {
+                ...p,
+                ...newProduct,
+                productImage: productImage
+                  ? { url: URL.createObjectURL(productImage) }
+                  : p.productImage,
+              }
+            : p
+        )
+      );
+
+      resetForm();
+    } catch (err) {
+      console.error(err);
+      toast.error(err?.response?.data?.message || "Failed to update product ");
+    }
+  };
+
+  const resetForm = () => {
+    setShowForm(false);
+    setEditingProduct(null);
+    setNewProduct({ name: "", description: "", price: "", link: "" });
+    setProductImage(null);
   };
 
   if (loading) {
@@ -105,7 +167,7 @@ export default function AllProducts() {
       <ToastContainer />
       <h1 className="text-3xl font-bold mb-6">All Products</h1>
       <button
-        onClick={() => setShowForm(!showForm)}
+        onClick={() => (editingProduct ? resetForm() : setShowForm(!showForm))}
         className="mb-4 bg-green-500 w-full text-white px-4 py-2 rounded hover:bg-green-600"
       >
         {showForm ? "Close Form" : "Add Product"}
@@ -113,17 +175,30 @@ export default function AllProducts() {
 
       {showForm && (
         <form
-          onSubmit={handleAddProduct}
+          onSubmit={editingProduct ? handleUpdateProduct : handleAddProduct}
           className="mb-6 p-4 border rounded-lg shadow-md"
         >
+          <h2 className="text-xl font-bold mb-4">
+            {editingProduct ? "Edit Product" : "Add New Product"}
+          </h2>
+
           <div className="mb-4">
             <label className="block mb-1 font-medium">Product Image</label>
             <input
               type="file"
               accept="image/*"
               onChange={(e) => setProductImage(e.target.files[0])}
-              required
+              required={!editingProduct}
             />
+            {editingProduct && productImage === null && (
+              <img
+                src={`${
+                  editingProduct.productImage?.url
+                }?t=${new Date().getTime()}`}
+                alt="Current product"
+                className="w-20 h-20 object-cover mt-2"
+              />
+            )}
           </div>
           <div className="mb-4">
             <label className="block mb-1 font-medium">Name</label>
@@ -181,7 +256,7 @@ export default function AllProducts() {
             type="submit"
             className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
           >
-            Submit Product
+            {editingProduct ? "Update Product" : "Submit Product"}
           </button>
         </form>
       )}
@@ -193,7 +268,7 @@ export default function AllProducts() {
             className="border rounded-lg p-4 shadow hover:shadow-lg transition duration-300"
           >
             <img
-              src={product.productImage?.url}
+              src={`${product.productImage?.url}?t=${new Date().getTime()}`}
               alt={product.name}
               className="w-full h-48 object-cover rounded mb-4"
             />
@@ -209,12 +284,20 @@ export default function AllProducts() {
               >
                 Buy Now
               </a>
-              <button
-                onClick={() => handleDelete(product._id)}
-                className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
-              >
-                Delete Product
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleEdit(product)}
+                  className="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600 flex-1"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => handleDelete(product._id)}
+                  className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 flex-1"
+                >
+                  Delete
+                </button>
+              </div>
             </div>
           </div>
         ))}
