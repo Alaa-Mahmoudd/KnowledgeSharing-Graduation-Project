@@ -17,6 +17,7 @@ const CategoriesSidebar = ({ onCategorySelect, onSubCategorySelect }) => {
     category: null,
     subCategory: null,
   });
+  const [expandedCategories, setExpandedCategories] = useState(new Set());
 
   // Color scheme
   const colors = {
@@ -39,12 +40,60 @@ const CategoriesSidebar = ({ onCategorySelect, onSubCategorySelect }) => {
     [subCategories]
   );
 
-  const filteredCategories = useMemo(() => {
-    if (!searchTerm) return categories;
-    return categories.filter((category) =>
-      category.name.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredItems = useMemo(() => {
+    if (!searchTerm) {
+      return categories.map(category => ({
+        ...category,
+        isCategory: true,
+        subCategories: getSubCategories(category._id)
+      }));
+    }
+
+    const lowerSearchTerm = searchTerm.toLowerCase();
+    
+    // Filter categories
+    const filteredCats = categories.filter(category =>
+      category.name.toLowerCase().includes(lowerSearchTerm)
     );
-  }, [categories, searchTerm]);
+    
+    // Filter subcategories
+    const filteredSubCats = subCategories.filter(subCat =>
+      subCat.name.toLowerCase().includes(lowerSearchTerm)
+    );
+
+    // Combine results
+    const result = [];
+    
+    // Add matching categories with their subcategories
+    filteredCats.forEach(category => {
+      result.push({
+        ...category,
+        isCategory: true,
+        subCategories: getSubCategories(category._id)
+      });
+    });
+
+    // Add parent categories of matching subcategories
+    filteredSubCats.forEach(subCat => {
+      const parentCategory = categories.find(cat => cat._id === subCat.category);
+      if (parentCategory && !result.some(item => item._id === parentCategory._id)) {
+        result.push({
+          ...parentCategory,
+          isCategory: true,
+          subCategories: getSubCategories(parentCategory._id)
+        });
+      }
+    });
+
+    // Mark which categories should be expanded
+    const newExpanded = new Set();
+    filteredSubCats.forEach(subCat => {
+      newExpanded.add(subCat.category);
+    });
+    setExpandedCategories(newExpanded);
+
+    return result;
+  }, [categories, subCategories, searchTerm, getSubCategories]);
 
   // API data fetching
   useEffect(() => {
@@ -90,8 +139,15 @@ const CategoriesSidebar = ({ onCategorySelect, onSubCategorySelect }) => {
     if (onSubCategorySelect) onSubCategorySelect(subCategory);
   };
 
+  const clearAllFilters = () => {
+    setSelectedItems({ category: null, subCategory: null });
+    if (onCategorySelect) onCategorySelect(null);
+    if (onSubCategorySelect) onSubCategorySelect(null);
+  };
+
   const clearSearch = () => {
     setSearchTerm("");
+    setExpandedCategories(new Set());
   };
 
   // Debounced search
@@ -144,7 +200,7 @@ const CategoriesSidebar = ({ onCategorySelect, onSubCategorySelect }) => {
           </div>
           <input
             type="text"
-            placeholder="Search categories..."
+            placeholder="Search categories or subcategories..."
             className="block w-full pl-10 pr-8 py-2 border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm transition-all"
             defaultValue={searchTerm}
             onChange={(e) => handleSearchChange(e.target.value)}
@@ -163,41 +219,44 @@ const CategoriesSidebar = ({ onCategorySelect, onSubCategorySelect }) => {
 
       {/* Categories list */}
       <div className="overflow-y-auto flex-1">
-        {filteredCategories.length > 0 ? (
+        {filteredItems.length > 0 ? (
           <ul>
-            {filteredCategories.map((category) => (
+            {filteredItems.map((item) => (
               <li
-                key={category._id}
+                key={item._id}
                 className="border-b border-gray-100 last:border-0"
               >
                 {/* Category header */}
                 <motion.div
                   whileHover={{ backgroundColor: colors.hover }}
-                  className={`px-4 py-3 flex justify-between items-center cursor-pointer transition-colors ${selectedItems.category?._id === category._id
-                      ? `bg-[${colors.selected}]`
+                  className={`px-4 py-3 flex justify-between items-center cursor-pointer transition-colors ${
+                    selectedItems.category?._id === item._id
+                      ? "bg-indigo-50"
                       : ""
-                    }`}
+                  }`}
                   onClick={() => {
-                    toggleCategory(category._id);
-                    handleCategorySelect(category);
+                    toggleCategory(item._id);
+                    handleCategorySelect(item);
                   }}
                 >
                   <div className="flex items-center">
-                    <h3 className="font-medium text-gray-900">{category.name}</h3>
-                    {selectedItems.category?._id === category._id && (
+                    <h3 className="font-medium text-gray-900">{item.name}</h3>
+                    {selectedItems.category?._id === item._id && (
                       <span className="ml-2 w-2 h-2 rounded-full bg-indigo-500"></span>
                     )}
                   </div>
-                  {activeCategory === category._id ? (
-                    <FaChevronUp className="text-gray-500 text-sm" />
-                  ) : (
-                    <FaChevronDown className="text-gray-500 text-sm" />
+                  {item.subCategories.length > 0 && (
+                    expandedCategories.has(item._id) || activeCategory === item._id ? (
+                      <FaChevronUp className="text-gray-500 text-sm" />
+                    ) : (
+                      <FaChevronDown className="text-gray-500 text-sm" />
+                    )
                   )}
                 </motion.div>
 
                 {/* Subcategories with animation */}
                 <AnimatePresence>
-                  {activeCategory === category._id && (
+                  {(expandedCategories.has(item._id) || activeCategory === item._id) && item.subCategories.length > 0 && (
                     <motion.div
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: "auto" }}
@@ -206,17 +265,16 @@ const CategoriesSidebar = ({ onCategorySelect, onSubCategorySelect }) => {
                       className="overflow-hidden"
                     >
                       <ul className="pl-8 pb-2">
-                        {getSubCategories(category._id).map((subCat, index) => (
+                        {item.subCategories.map((subCat) => (
                           <motion.li
                             key={subCat._id}
                             initial={{ opacity: 0, x: -10 }}
                             animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: index * 0.05, duration: 0.15 }}
-                            whileHover={{ x: 5 }}
-                            className={`py-2 text-sm cursor-pointer transition-colors ${selectedItems.subCategory?._id === subCat._id
-                                ? `text-[${colors.primary}] font-medium`
+                            className={`py-2 text-sm cursor-pointer transition-colors ${
+                              selectedItems.subCategory?._id === subCat._id
+                                ? "text-indigo-600 font-medium bg-indigo-50 px-2 rounded"
                                 : "text-gray-600 hover:text-indigo-600"
-                              }`}
+                            }`}
                             onClick={() => handleSubCategorySelect(subCat)}
                           >
                             {subCat.name}
@@ -246,21 +304,36 @@ const CategoriesSidebar = ({ onCategorySelect, onSubCategorySelect }) => {
       {/* Selected items summary */}
       {(selectedItems.category || selectedItems.subCategory) && (
         <div className="border-t border-gray-100 p-3 bg-gray-50 text-sm">
-          <div className="text-gray-500 mb-1">Selected:</div>
-          {selectedItems.category && (
-            <div className="font-medium text-gray-700">
-              {selectedItems.category.name}
+          <div className="flex justify-between items-center">
+            <div>
+              <div className="text-gray-500 mb-1">Selected:</div>
+              {selectedItems.category && (
+                <div className="font-medium text-gray-700">
+                  {selectedItems.category.name}
+                </div>
+              )}
+              {selectedItems.subCategory && (
+                <div className="text-gray-600 ml-2">
+                  → {selectedItems.subCategory.name}
+                </div>
+              )}
             </div>
-          )}
-          {selectedItems.subCategory && (
-            <div className="text-gray-600 ml-2">
-              → {selectedItems.subCategory.name}
-            </div>
-          )}
+            <button
+              onClick={clearAllFilters}
+              className="text-xs text-red-500 hover:text-red-700"
+            >
+              Clear All
+            </button>
+          </div>
         </div>
       )}
     </motion.div>
   );
+};
+
+CategoriesSidebar.defaultProps = {
+  onCategorySelect: () => {},
+  onSubCategorySelect: () => {}
 };
 
 export default React.memo(CategoriesSidebar);

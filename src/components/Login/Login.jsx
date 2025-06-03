@@ -46,10 +46,10 @@ const Login = () => {
         }, 2000);
       })
       .catch((apiResponse) => {
-        setApiError(apiResponse?.response?.data?.error || "Invalid email or password");
+        setApiError(apiResponse?.response?.data?.error || apiResponse?.response?.data?.message );
         setApiSuccess("");
         setIsLoading(false);
-        toast.error(apiError || "Login failed");
+        toast.error(apiError || apiResponse?.response?.message );
       });
   };
 

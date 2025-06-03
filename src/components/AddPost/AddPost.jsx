@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import { FaCamera, FaTrash, FaFilePdf, FaFileImage, FaFileAlt, FaPlus, FaPaperPlane } from "react-icons/fa";
+import { FaCamera, FaTrash, FaFilePdf, FaFileImage, FaFileAlt, FaPlus, FaPaperPlane, FaTimes } from "react-icons/fa";
 import { ClipLoader } from "react-spinners";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast, ToastContainer } from "react-toastify";
