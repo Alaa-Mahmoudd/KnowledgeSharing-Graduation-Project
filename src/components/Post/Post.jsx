@@ -32,16 +32,20 @@ export default function Post() {
   const [error, setError] = useState(null);
   const [isLoadingLike, setIsLoadingLike] = useState(false);
   const [isLoadingSave, setIsLoadingSave] = useState(false);
-  const [isLoadingRate, setIsLoadingRate] = useState(false);
   const [likeCounts, setLikeCounts] = useState({});
   const [saveCounts, setSaveCounts] = useState({});
-  const [ratingCounts, setRatingCounts] = useState({});
+  const [comments, setComments] = useState(() => {
+    const savedComments = localStorage.getItem("comments");
+    return savedComments ? JSON.parse(savedComments) : {};
+  });
+  const [text, setText] = useState("");
+  const [parentId, setParentId] = useState(null);
+  const [showComments, setShowComments] = useState({});
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearch, setShowSearch] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const recognitionRef = useRef(null);
   const [isListening, setIsListening] = useState(false);
-
   const navigate = useNavigate();
   const token = localStorage.getItem("token");
 
@@ -56,24 +60,21 @@ export default function Post() {
     muted: "#6B7280",
   };
 
-  // ✅ Load interactions from localStorage
+  // Load interactions from localStorage
   useEffect(() => {
     const storedLikes = JSON.parse(localStorage.getItem("likes")) || {};
     const storedSaves = JSON.parse(localStorage.getItem("saves")) || {};
-    const storedRatings = JSON.parse(localStorage.getItem("ratings")) || {};
     setLikeCounts(storedLikes);
     setSaveCounts(storedSaves);
-    setRatingCounts(storedRatings);
   }, []);
 
-  // ✅ get all posts
+  // Get all posts
   const getAllPosts = async () => {
     try {
       const { data } = await axios.get(
         "https://knowledge-sharing-pied.vercel.app/post/list"
       );
       setPosts(data.posts || []);
-      setFilteredPosts(data.posts || []);
       setIsLoading(false);
     } catch (error) {
       console.error("Error fetching posts:", error);
@@ -83,23 +84,28 @@ export default function Post() {
   };
 
   useEffect(() => {
-    getAllPosts();
-  }, []);
+    const loadInitialData = async () => {
+      await getAllPosts();
 
-  // Speech synthesis
-  const speakText = (title, content) => {
-    window.speechSynthesis.cancel(); // Cancel any ongoing speech
-    const text = `${title}. ${content}`;
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = "en-US";
-    utterance.pitch = 1;
-    utterance.rate = 0.9;
-    window.speechSynthesis.speak(utterance);
-  };
+      // Load comments for all posts initially
+      const initialComments =
+        JSON.parse(localStorage.getItem("comments")) || {};
+      setComments(initialComments);
+
+      // Fetch fresh comments for all posts
+      posts.forEach((post) => {
+        fetchComments(post._id);
+      });
+    };
+
+    loadInitialData();
+  }, []);
 
   // Voice Search using Web Speech API
   useEffect(() => {
-    if (!("webkitSpeechRecognition" in window || "SpeechRecognition" in window)) {
+    if (
+      !("webkitSpeechRecognition" in window || "SpeechRecognition" in window)
+    ) {
       console.warn("Speech Recognition not supported in this browser.");
       return;
     }
@@ -164,14 +170,15 @@ export default function Post() {
         return (
           (post.title && post.title.toLowerCase().includes(searchLower)) ||
           (post.content && post.content.toLowerCase().includes(searchLower)) ||
-          (post.author?.name && post.author.name.toLowerCase().includes(searchLower))
+          (post.author?.name &&
+            post.author.name.toLowerCase().includes(searchLower))
         );
       });
       setFilteredPosts(filtered);
     }
   }, [searchQuery, posts]);
 
-  // ✅ Handle delete post
+  // Handle delete post
   const handleDeletePost = async (postId) => {
     try {
       await axios.delete(
@@ -189,18 +196,20 @@ export default function Post() {
       console.error("Delete post error:", error);
     }
   };
-  // ✅ Like
-  const handleLikePost = async (postId) => {
-    setIsLoadingLike(true);
 
-    if (likeCounts[postId] >= 1) {
-      toast.info("You already liked this post.");
-      setIsLoadingLike(false);
+  // Handle like post
+  const handleLikePost = async (postId, e) => {
+    e.stopPropagation();
+    if (!token) {
+      toast.error("Please login to like posts");
+      navigate("/login");
       return;
     }
 
+    setIsLoadingLike(true);
+
     try {
-      await axios.post(
+      const response = await axios.post(
         `https://knowledge-sharing-pied.vercel.app/interaction/${postId}/like`,
         {},
         {
@@ -210,32 +219,39 @@ export default function Post() {
         }
       );
 
-      const updatedLikes = {
-        ...likeCounts,
-        [postId]: (likeCounts[postId] || 0) + 1,
-      };
+      setLikeCounts((prev) => ({
+        ...prev,
+        [postId]: response.data.likesCount,
+      }));
 
-      setLikeCounts(updatedLikes);
-      localStorage.setItem("likes", JSON.stringify(updatedLikes));
+      localStorage.setItem(
+        "likes",
+        JSON.stringify({
+          ...likeCounts,
+          [postId]: response.data.likesCount,
+        })
+      );
 
-      toast.success("Post liked!");
+      toast.success(response.data.message || "Post liked!");
     } catch (error) {
-      toast.error("Failed to like post.");
+      toast.error(error.response?.data?.message || "Failed to like post.");
     } finally {
       setIsLoadingLike(false);
     }
   };
 
-  // ✅ Save
-  const handleSavePost = async (postId) => {
-    setIsLoadingSave(true);
-    if (saveCounts[postId]) {
-      toast.info("You already saved this post.");
-      setIsLoadingSave(false);
+  // Handle save post
+  const handleSavePost = async (postId, e) => {
+    e.stopPropagation();
+    if (!token) {
+      toast.error("Please login to save posts");
+      navigate("/login");
       return;
     }
+
+    setIsLoadingSave(true);
     try {
-      await axios.post(
+      const response = await axios.post(
         `https://knowledge-sharing-pied.vercel.app/interaction/${postId}/save`,
         {},
         {
@@ -244,52 +260,32 @@ export default function Post() {
           },
         }
       );
-      const updatedSaves = { ...saveCounts, [postId]: true };
-      setSaveCounts(updatedSaves);
-      localStorage.setItem("saves", JSON.stringify(updatedSaves));
-      toast.success("Post saved!");
+
+      setSaveCounts((prev) => ({
+        ...prev,
+        [postId]: !prev[postId],
+      }));
+
+      toast.success(
+        saveCounts[postId]
+          ? "Post removed from saved!"
+          : "Post saved successfully!"
+      );
     } catch (error) {
-      toast.error("Failed to save post.");
+      toast.error(error.response?.data?.message || "Failed to save post.");
     } finally {
       setIsLoadingSave(false);
     }
   };
 
-  // ✅ Rate
-  const handleRatePost = async (postId, rating) => {
-    setIsLoadingRate(true);
-    if (ratingCounts[postId]) {
-      toast.info("You already rated this post.");
-      setIsLoadingRate(false);
-      return;
-    }
-    try {
-      await axios.post(
-        `https://knowledge-sharing-pied.vercel.app/interaction/${postId}/rate`,
-        { rating },
-        {
-          headers: {
-            token: `noteApp__${token}`,
-          },
-        }
-      );
-      const updatedRatings = { ...ratingCounts, [postId]: rating };
-      setRatingCounts(updatedRatings);
-      localStorage.setItem("ratings", JSON.stringify(updatedRatings));
-      toast.success("Post rated!");
-    } catch (error) {
-      toast.error("Failed to rate post.");
-    } finally {
-      setIsLoadingRate(false);
-    }
-  };
-  // ✅ get like counts for all posts
+  // Get like counts for all posts
   useEffect(() => {
     posts.forEach((post) => {
       getLikesCount(post._id);
     });
   }, [posts]);
-  // ✅ get like counts
+
+  // Get like counts
   const getLikesCount = async (postId) => {
     try {
       const response = await axios.get(
@@ -304,35 +300,176 @@ export default function Post() {
     }
   };
 
-  // Fetch ratings count for a post
-  const getRatingsCount = async (postId) => {
-    try {
-      const response = await axios.get(
-        `https://knowledge-sharing-pied.vercel.app/interaction/${postId}/ratings_count`
-      );
-      setRatingCounts((prevCounts) => ({
-        ...prevCounts,
-        [postId]: response.data.ratingCounts,
-      }));
-    } catch (error) {
-      console.error("Error fetching ratings count:", error);
-    }
-  };
-  // ✅ Get user info from localStorage (assumed token contains user info)
+  // Get user info from token
   const getUserFromToken = () => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      const userData = JSON.parse(atob(token.split(".")[1])); // Decode the JWT to get user data
-      return userData; // Assuming it contains user info like id
+    if (!token) return null;
+    try {
+      const userData = JSON.parse(atob(token.split(".")[1]));
+      return userData;
+    } catch (error) {
+      console.error("Error parsing token:", error);
+      return null;
     }
-    return null;
+  };
+  const user = getUserFromToken();
+
+  const speakText = (title, content) => {
+    if ("speechSynthesis" in window) {
+      const text = `${title}. ${content}`;
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = "en-US";
+      utterance.pitch = 1;
+      utterance.rate = 1;
+      window.speechSynthesis.speak(utterance);
+    } else {
+      toast.warning("Text-to-speech not supported in your browser");
+    }
   };
 
+  // Comments functions
+  const toggleComments = async (postId) => {
+    setShowComments((prev) => ({
+      ...prev,
+      [postId]: !prev[postId],
+    }));
 
+    if (
+      !showComments[postId] &&
+      (!comments[postId] || comments[postId].length === 0)
+    ) {
+      await fetchComments(postId);
+    }
+  };
 
+  const fetchComments = async (postId) => {
+    try {
+      const res = await axios.get(
+        `https://knowledge-sharing-pied.vercel.app/comment/${postId}/get`
+      );
 
+      setComments((prev) => {
+        const newComments = {
+          ...prev,
+          [postId]: res.data.comments || [],
+        };
+        localStorage.setItem("comments", JSON.stringify(newComments));
+        return newComments;
+      });
+    } catch (error) {
+      console.error("Error fetching comments:", error);
+    }
+  };
 
-  // ✅ Loading
+  const handleAddComment = async (e, postId) => {
+    e.preventDefault();
+    if (!text.trim()) return;
+    if (!token) {
+      toast.error("Please login to comment");
+      navigate("/login");
+      return;
+    }
+
+    try {
+      const { data } = await axios.post(
+        `https://knowledge-sharing-pied.vercel.app/comment/${postId}/add`,
+        {
+          text,
+          parent_comment: parentId || null,
+        },
+        {
+          headers: {
+            token: `noteApp__${token}`,
+          },
+        }
+      );
+
+      setText("");
+      setParentId(null);
+
+      setComments((prev) => {
+        const newComments = {
+          ...prev,
+          [postId]: [data.comment, ...(prev[postId] || [])],
+        };
+        localStorage.setItem("comments", JSON.stringify(newComments));
+        return newComments;
+      });
+
+      toast.success("Comment added successfully!");
+    } catch (error) {
+      console.error("Error adding comment:", error);
+      toast.error("Failed to add comment");
+    }
+  };
+
+  // Handle delete comment
+  const handleDeleteComment = async (commentId, postId) => {
+    if (!token) {
+      return;
+    }
+
+    try {
+      await axios.delete(
+        `https://knowledge-sharing-pied.vercel.app/comment/${commentId}/delete`,
+        {
+          headers: {
+            token: `noteApp__${token}`,
+          },
+        }
+      );
+
+      // Update comments state
+      setComments((prev) => {
+        const updatedComments = {
+          ...prev,
+          [postId]: prev[postId].filter((comment) => comment._id !== commentId),
+        };
+        localStorage.setItem("comments", JSON.stringify(updatedComments));
+        return updatedComments;
+      });
+
+      toast.success("Comment deleted successfully!");
+    } catch (error) {
+      console.error("Error deleting comment:", error);
+      toast.error("Failed to delete comment");
+    }
+  };
+
+  const renderComments = (commentsArray, postId, parent = null) => {
+    if (!commentsArray) return null;
+
+    return commentsArray
+      .filter((c) => c.parent_comment === parent)
+      .map((c) => (
+        <div key={c._id} className={`ml-${parent ? "6" : "0"} mt-4`}>
+          <div className="flex gap-3 items-start">
+            <div className="bg-purple-700 text-white w-8 h-8 flex items-center justify-center rounded-full text-sm font-bold">
+              {c.userId?.username?.charAt(0) || "U"}
+            </div>
+            <div className="bg-gray-100 rounded-lg px-4 py-2 w-full relative">
+              <p className="text-sm pr-6">{c.text}</p>
+
+              {user?.id === c.userId?._id && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteComment(c._id, postId);
+                  }}
+                  className="absolute top-2 right-2 text-red-500 hover:text-red-700"
+                  title="Delete comment"
+                >
+                  Delete
+                </button>
+              )}
+
+              {renderComments(commentsArray, postId, c._id)}
+            </div>
+          </div>
+        </div>
+      ));
+  };
+
+  // Loading
   if (isLoading) {
     return (
       <motion.div
@@ -351,7 +488,7 @@ export default function Post() {
     );
   }
 
-  // ✅ Error
+  // Error
   if (error) {
     return (
       <motion.div
@@ -364,12 +501,9 @@ export default function Post() {
     );
   }
 
-
   return (
     <div className="w-full px-4 sm:px-6 lg:px-8 py-8 min-h-screen bg-gray-50">
-      {/* Main Layout Container */}
       <div className="flex flex-col md:flex-row gap-19">
-        {/* Categories Sidebar (Fixed Left) */}
         <motion.div
           initial={{ x: -20, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
@@ -379,16 +513,13 @@ export default function Post() {
           <CategoriesSidebar />
         </motion.div>
 
-        {/* Main Content Area */}
         <div className="flex-1 space-y-4">
-          {/* Premium Search Header */}
           <motion.div
             initial={{ y: -10, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
             className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white rounded-xl p-4 shadow-sm border border-gray-100"
           >
-            {/* Search Bar + Voice Button */}
             <div className="flex items-center flex-1 w-full gap-2">
               <motion.div
                 whileHover={{ boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)" }}
@@ -405,7 +536,10 @@ export default function Post() {
                 />
                 {searchQuery && (
                   <motion.button
-                    onClick={() => setSearchQuery("")}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSearchQuery("");
+                    }}
                     className="ml-1 text-gray-400 hover:text-gray-600"
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.9 }}
@@ -416,11 +550,15 @@ export default function Post() {
               </motion.div>
 
               <motion.button
-                onClick={handleVoiceSearch}
-                className={`p-2.5 rounded-lg ${isListening
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleVoiceSearch();
+                }}
+                className={`p-2.5 rounded-lg ${
+                  isListening
                     ? "bg-red-100 text-red-500 shadow-sm"
                     : "text-gray-500 hover:text-indigo-600 bg-gray-50 hover:bg-gray-100"
-                  }`}
+                }`}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
@@ -437,12 +575,11 @@ export default function Post() {
               </motion.button>
             </div>
 
-            {/* Create Post Button */}
             <motion.button
               onClick={() => navigate("/addPost")}
               whileHover={{
                 scale: 1.02,
-                boxShadow: "0 4px 12px rgba(99, 102, 241, 0.2)"
+                boxShadow: "0 4px 12px rgba(99, 102, 241, 0.2)",
               }}
               whileTap={{ scale: 0.98 }}
               className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg text-sm font-medium shadow-xs hover:shadow-sm whitespace-nowrap"
@@ -452,7 +589,6 @@ export default function Post() {
             </motion.button>
           </motion.div>
 
-          {/* Posts List */}
           <div className="space-y-5">
             {filteredPosts.length > 0 ? (
               filteredPosts.map((post, index) => (
@@ -463,14 +599,16 @@ export default function Post() {
                   transition={{ delay: index * 0.1, duration: 0.5 }}
                   whileHover={{
                     y: -2,
-                    boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)"
+                    boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)",
                   }}
-                  onClick={() => navigate(`/post/${post._id}`)}
-                  className="bg-white rounded-xl overflow-hidden shadow-xs border border-gray-100 cursor-pointer transition-all duration-300 hover:border-indigo-100"
+                  className="bg-white rounded-xl overflow-hidden shadow-xs border border-gray-100 transition-all duration-300 hover:border-indigo-100"
                 >
                   <div className="flex flex-col md:flex-row">
                     {post.thumbnail && (
-                      <div className="md:w-2/5 h-48 md:h-auto relative overflow-hidden">
+                      <div
+                        className="md:w-2/5 h-48 md:h-auto relative overflow-hidden cursor-pointer"
+                        onClick={() => navigate(`/post/${post._id}`)}
+                      >
                         <motion.img
                           src={post.thumbnail}
                           alt={post.title}
@@ -482,8 +620,15 @@ export default function Post() {
                       </div>
                     )}
 
-                    <div className={`${post.thumbnail ? "md:w-3/5" : "w-full"} p-5`}>
-                      <div className="flex items-center mb-3">
+                    <div
+                      className={`${
+                        post.thumbnail ? "md:w-3/5" : "w-full"
+                      } p-5`}
+                    >
+                      <div
+                        className="flex items-center mb-3 cursor-pointer"
+                        onClick={() => navigate(`/post/${post._id}`)}
+                      >
                         <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-medium text-sm">
                           {post.author?.name?.charAt(0) || "U"}
                         </div>
@@ -492,20 +637,29 @@ export default function Post() {
                             {post.author?.name || "Unknown"}
                           </p>
                           <p className="text-xs text-gray-500">
-                            {new Date(post.createdAt).toLocaleDateString('en-US', {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric'
-                            })}
+                            {new Date(post.createdAt).toLocaleDateString(
+                              "en-US",
+                              {
+                                year: "numeric",
+                                month: "short",
+                                day: "numeric",
+                              }
+                            )}
                           </p>
                         </div>
                       </div>
 
-                      <h2 className="text-xl font-bold text-gray-900 mb-2 line-clamp-2">
+                      <h2
+                        className="text-xl font-bold text-gray-900 mb-2 line-clamp-2 cursor-pointer"
+                        onClick={() => navigate(`/post/${post._id}`)}
+                      >
                         {post.title}
                       </h2>
 
-                      <p className="text-gray-600 text-sm mb-4 line-clamp-3">
+                      <p
+                        className="text-gray-600 text-sm mb-4 line-clamp-3 cursor-pointer"
+                        onClick={() => navigate(`/post/${post._id}`)}
+                      >
                         {post.content}
                       </p>
 
@@ -529,89 +683,123 @@ export default function Post() {
 
                       <div className="flex items-center justify-between pt-3 border-t border-gray-100">
                         <div className="flex items-center space-x-4">
-                          <motion.button
+                          <div
                             onClick={(e) => {
                               e.stopPropagation();
                               handleLikePost(post._id);
                             }}
-                            className="flex items-center text-gray-500 hover:text-indigo-600 text-md relative"
-                            whileTap={{ scale: 0.9 }}
+                            className={`flex cursor-pointer items-center gap-1 ${
+                              likeCounts[post._id] ? "text-blue-500" : ""
+                            }`}
+                            title="Like"
                           >
-                            <motion.span
-                              key={`like-${post._id}-${likeCounts[post._id] || 0}`}
-                              initial={{ scale: 1 }}
-                              animate={{ scale: likeCounts[post._id] ? [1, 1.3, 1] : 1 }}
-                              transition={{ duration: 0.3 }}
-                              className="flex items-center"
-                            >
-                              <BiSolidLike
-                                className={`mr-1 ${likeCounts[post._id] ? "text-indigo-600" : ""}`}
-                                size={16}
-                              />
-                              <span className="ml-1">{likeCounts[post._id] || 0}</span>
-                            </motion.span>
-                            <motion.span
-                              className="absolute -top-2 -right-2"
-                              animate={{
-                                scale: likeCounts[post._id] ? [0, 1.5, 1] : 0,
-                                opacity: likeCounts[post._id] ? [0, 1, 1] : 0
-                              }}
-                              transition={{ duration: 0.5 }}
-                            >
-                              <FaHeart className="text-red-500 text-xs" />
-                            </motion.span>
-                          </motion.button>
+                            <BiSolidLike />
+                            <span className="text-black">
+                              {likeCounts[post._id] || 0}
+                            </span>
+                          </div>
 
-                          <motion.button
+                          <div
                             onClick={(e) => {
                               e.stopPropagation();
-                              navigate(`/post/${post._id}#comments`);
+                              toggleComments(post._id);
                             }}
-                            className="text-gray-500 hover:text-indigo-600 relative"
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.9 }}
+                            className="flex items-center cursor-pointer gap-1"
+                            title="Comment"
                           >
-                            <FaRegCommentDots size={16} />
-                          </motion.button>
+                            <FaRegCommentDots />
+                            <span className="text-black">
+                              {comments[post._id]?.length || 0}
+                            </span>
+                          </div>
 
-                          <motion.button
+                          <div
                             onClick={(e) => {
                               e.stopPropagation();
-                              speakText(post.title, post.content);
+                              handleSavePost(post._id);
                             }}
-                            className="text-gray-500 hover:text-indigo-600"
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.9 }}
+                            className={`cursor-pointer flex items-center gap-1 ${
+                              saveCounts[post._id] ? "text-green-500" : ""
+                            }`}
+                            title="Save"
                           >
-                            <FaVolumeUp size={16} />
-                          </motion.button>
+                            <FaBookmark />
+                            {saveCounts[post._id] && (
+                              <span className="text-black">Saved</span>
+                            )}
+                          </div>
                         </div>
 
-                        <div className="flex items-center space-x-1">
-                          {[...Array(5)].map((_, i) => (
-                            <motion.button
-                              key={i}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleRatePost(post._id, i + 1);
-                              }}
-                              className={`text-md ${ratingCounts[post._id] > i ? "text-yellow-400" : "text-gray-300"}`}
-                              whileHover={{ scale: 1.2 }}
-                              whileTap={{ scale: 0.9 }}
-                            >
-                              <motion.span
-                                animate={{
-                                  scale: ratingCounts[post._id] === i + 1 ? [1, 1.3, 1] : 1,
-                                  rotate: ratingCounts[post._id] === i + 1 ? [0, 20, -20, 0] : 0
+                        <div className="flex gap-2">
+                          {user?.id === post.author?._id && (
+                            <>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(`/editPost/${post._id}`);
                                 }}
-                                transition={{ duration: 0.5 }}
+                                className="cursor-pointer text-gray-500 hover:text-blue-800"
+                                title="Edit"
                               >
-                                <FaStar size={16} />
-                              </motion.span>
-                            </motion.button>
-                          ))}
+                                <FaEdit size={20} />
+                              </button>
+
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeletePost(post._id);
+                                }}
+                                className="cursor-pointer text-gray-500 hover:text-red-800"
+                                title="Delete"
+                              >
+                                <MdDelete size={20} />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </div>
+
+                      <AnimatePresence>
+                        {showComments[post._id] && (
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: "auto" }}
+                            exit={{ opacity: 0, height: 0 }}
+                            transition={{ duration: 0.3 }}
+                            className="mt-4"
+                          >
+                            <div className="border-t border-gray-200 pt-4">
+                              <form
+                                onSubmit={(e) => {
+                                  e.stopPropagation();
+                                  handleAddComment(e, post._id);
+                                }}
+                                className="mb-4"
+                              >
+                                <div className="flex gap-2">
+                                  <input
+                                    type="text"
+                                    value={text}
+                                    onChange={(e) => setText(e.target.value)}
+                                    placeholder="Write a comment..."
+                                    className="flex-1 border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                                  />
+                                  <button
+                                    type="submit"
+                                    className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
+                                  >
+                                    Comment
+                                  </button>
+                                </div>
+                              </form>
+
+                              <div className="mb-4">
+                                {renderComments(comments[post._id], post._id)}
+                              </div>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
                   </div>
                 </motion.article>
@@ -662,5 +850,4 @@ export default function Post() {
       />
     </div>
   );
-};
-
+}

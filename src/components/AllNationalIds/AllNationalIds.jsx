@@ -4,14 +4,13 @@ import { ThreeDots } from "react-loader-spinner";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useAdmin } from "../../Context/AdminContext.jsx";
-
 export default function AllNationalIds() {
   const [nationalIds, setNationalIds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [loadingVerify, setLoadingVerify] = useState(null);
-  const { admin } = useAdmin(); // Get admin data from context
-  const token = admin?.token; // Use token from context instead of localStorage
+  const { admin } = useAdmin(); 
+  const token = admin?.token; 
 
   useEffect(() => {
     if (!token) {

@@ -37,7 +37,7 @@ export default function AdminForgetPassword() {
         console.error(err);
         formik.setStatus(
           err.response?.data?.message ||
-          "Failed to send reset code. Please try again."
+            "Failed to send reset code. Please try again."
         );
       } finally {
         setIsLoading(false);
@@ -54,7 +54,6 @@ export default function AdminForgetPassword() {
         className="w-full max-w-md"
       >
         <div className="bg-white/10 backdrop-blur-lg rounded-2xl shadow-xl overflow-hidden border border-white/20">
-          {/* Decorative header */}
           <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-6 text-center relative">
             <Link
               to="/admin/login"
@@ -65,8 +64,12 @@ export default function AdminForgetPassword() {
             <div className="inline-flex items-center justify-center w-16 h-16 bg-white/20 rounded-full backdrop-blur-sm">
               <AiOutlineMail className="text-white text-2xl" />
             </div>
-            <h1 className="mt-4 text-2xl font-bold text-white">Password Recovery</h1>
-            <p className="text-white/80 mt-1">Enter your email to reset password</p>
+            <h1 className="mt-4 text-2xl font-bold text-white">
+              Password Recovery
+            </h1>
+            <p className="text-white/80 mt-1">
+              Enter your email to reset password
+            </p>
           </div>
 
           <div className="p-8">
@@ -112,10 +115,11 @@ export default function AdminForgetPassword() {
                     onBlur={formik.handleBlur}
                     value={formik.values.email}
                     placeholder="admin@example.com"
-                    className={`w-full pl-10 pr-4 py-3 bg-white/5 border ${formik.touched.email && formik.errors.email
+                    className={`w-full pl-10 pr-4 py-3 bg-white/5 border ${
+                      formik.touched.email && formik.errors.email
                         ? "border-red-400 focus:ring-red-400"
                         : "border-white/10 focus:ring-indigo-400"
-                      } rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:border-transparent transition-all`}
+                    } rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:border-transparent transition-all`}
                   />
                 </div>
                 {formik.touched.email && formik.errors.email && (
@@ -134,10 +138,11 @@ export default function AdminForgetPassword() {
                 whileTap={{ scale: 0.98 }}
                 type="submit"
                 disabled={isLoading}
-                className={`w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white ${isLoading
+                className={`w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white ${
+                  isLoading
                     ? "bg-indigo-400 cursor-not-allowed"
                     : "bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700"
-                  } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-400 transition-all`}
+                } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-400 transition-all`}
               >
                 {isLoading ? (
                   <>

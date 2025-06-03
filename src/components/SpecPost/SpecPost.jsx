@@ -1,15 +1,15 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
-import { FaStar, FaRegCommentDots, FaBookmark, FaEdit, FaFilePdf } from "react-icons/fa";
+import { FaStar, FaBookmark, FaEdit, FaFilePdf } from "react-icons/fa";
 import { BiSolidLike } from "react-icons/bi";
 import { ThreeDots } from "react-loader-spinner";
 import { MdDelete } from "react-icons/md";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import { motion, AnimatePresence } from "framer-motion";
+import { FaRegCommentDots } from "react-icons/fa";
+import { motion } from "framer-motion";
 import { useUser } from "../../Context/UserContext";
-
 
 export default function SpecPost() {
   const { id } = useParams();
@@ -25,6 +25,16 @@ export default function SpecPost() {
   const [likeCounts, setLikeCounts] = useState({});
   const [saveCounts, setSaveCounts] = useState({});
   const [ratingCounts, setRatingCounts] = useState({});
+  const token = localStorage.getItem("token");
+  const user = useUser(); // Using the user context
+
+  // ✅ Load interactions from localStorage
+  useEffect(() => {
+    const storedLikes = JSON.parse(localStorage.getItem("likes")) || {};
+    const storedSaves = JSON.parse(localStorage.getItem("saves")) || {};
+    setLikeCounts(storedLikes);
+    setSaveCounts(storedSaves);
+  }, []);
 
   const fetchPost = async () => {
     try {
@@ -44,9 +54,8 @@ export default function SpecPost() {
     fetchPost();
   }, [id]);
 
+  // ✅ Handle delete post
   const handleDeletePost = async (postId) => {
-    const token = localStorage.getItem("token");
-
     try {
       await axios.delete(
         `https://knowledge-sharing-pied.vercel.app/post/delete/${postId}`,
@@ -57,20 +66,23 @@ export default function SpecPost() {
         }
       );
       toast.success("Post deleted successfully!");
-      navigate("/");
+      navigate("/posts");
     } catch (error) {
       toast.error("Failed to delete post. Try again.");
       console.error("Delete post error:", error);
     }
   };
+
   // ✅ Like
   const handleLikePost = async (postId) => {
     setIsLoadingLike(true);
-    if (likeCounts[postId]) {
+
+    if (likeCounts[postId] >= 1) {
       toast.info("You already liked this post.");
       setIsLoadingLike(false);
       return;
     }
+
     try {
       await axios.post(
         `https://knowledge-sharing-pied.vercel.app/interaction/${postId}/like`,
@@ -81,9 +93,15 @@ export default function SpecPost() {
           },
         }
       );
-      const updatedLikes = { ...likeCounts, [postId]: true };
+
+      const updatedLikes = {
+        ...likeCounts,
+        [postId]: (likeCounts[postId] || 0) + 1,
+      };
+
       setLikeCounts(updatedLikes);
       localStorage.setItem("likes", JSON.stringify(updatedLikes));
+
       toast.success("Post liked!");
     } catch (error) {
       toast.error("Failed to like post.");
@@ -121,58 +139,21 @@ export default function SpecPost() {
     }
   };
 
-  // ✅ Rate
-  const handleRatePost = async (postId, rating) => {
-    setIsLoadingRate(true);
-    if (ratingCounts[postId]) {
-      toast.info("You already rated this post.");
-      setIsLoadingRate(false);
-      return;
-    }
+  // ✅ get like counts
+  const getLikesCount = async (postId) => {
     try {
-      await axios.post(
-        `https://knowledge-sharing-pied.vercel.app/interaction/${postId}/rate`,
-        { rating },
-        {
-          headers: {
-            token: `noteApp__${token}`,
-          },
-        }
+      const response = await axios.get(
+        `https://knowledge-sharing-pied.vercel.app/interaction/${postId}/likes_count`
       );
-      const updatedRatings = { ...ratingCounts, [postId]: rating };
-      setRatingCounts(updatedRatings);
-      localStorage.setItem("ratings", JSON.stringify(updatedRatings));
-      toast.success("Post rated!");
-    } catch (error) {
-      toast.error("Failed to rate post.");
-    } finally {
-      setIsLoadingRate(false);
-    }
-  };
-  // ✅ get like counts and rating counts
-  const getPostCounts = async (postId) => {
-    try {
-      const { data: likeData } = await axios.get(
-        `https://knowledge-sharing-pied.vercel.app/interaction/${postId}/likes_count`,
-        {
-          headers: { token: `noteApp__${token}` },
-        }
-      );
-      const { data: ratingData } = await axios.get(
-        `https://knowledge-sharing-pied.vercel.app/interaction/${postId}/ratings_count`,
-        {
-          headers: { token: `noteApp__${token}` },
-        }
-      );
-      setLikeCounts((prev) => ({ ...prev, [postId]: likeData.likesCount }));
-      setRatingCounts((prev) => ({
-        ...prev,
-        [postId]: ratingData.ratingsCount,
+      setLikeCounts((prevCounts) => ({
+        ...prevCounts,
+        [postId]: response.data.likesCount,
       }));
     } catch (error) {
-      console.error("Error fetching like or rating counts:", error);
+      console.error("Error fetching like count:", error);
     }
   };
+
   const speakText = (title, content) => {
     const text = `${title}. ${content}`;
     const utterance = new SpeechSynthesisUtterance(text);
@@ -198,8 +179,6 @@ export default function SpecPost() {
     );
   }
 
-
-
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -224,10 +203,10 @@ export default function SpecPost() {
                 </span>
               </div>
               <div className="text-xs text-gray-400">
-                {new Date(post.createdAt).toLocaleDateString('en-US', {
-                  year: 'numeric',
-                  month: 'short',
-                  day: 'numeric'
+                {new Date(post.createdAt).toLocaleDateString("en-US", {
+                  year: "numeric",
+                  month: "short",
+                  day: "numeric",
                 })}
               </div>
             </div>
@@ -253,7 +232,7 @@ export default function SpecPost() {
             <motion.div
               animate={{
                 scale: [1, 1.1, 1],
-                transition: { repeat: Infinity, duration: 2 }
+                transition: { repeat: Infinity, duration: 2 },
               }}
             >
               <span className="text-xl">🎙️</span>
@@ -263,29 +242,6 @@ export default function SpecPost() {
 
           <div className="flex justify-between items-center pt-4 border-t border-gray-100">
             <div className="flex items-center text-sm gap-5">
-              {/* Rating */}
-              <motion.div
-                whileHover={{ scale: 1.1 }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const userRating = prompt("Rate this post from 1 to 5:");
-                  const ratingValue = parseInt(userRating);
-                  if (ratingValue >= 1 && ratingValue <= 5) {
-                    handleRatePost(post._id, ratingValue);
-                  } else {
-                    toast.error("Invalid rating. Please enter 1 to 5.");
-                  }
-                }}
-                className="flex cursor-pointer items-center gap-1"
-              >
-                <FaStar
-                  className={`text-xl ${ratingCounts[post._id] ? "text-yellow-400" : "text-gray-300"}`}
-                />
-                {ratingCounts[post._id] && (
-                  <span className="text-sm text-gray-600">{ratingCounts[post._id]}/5</span>
-                )}
-              </motion.div>
-
               {/* Like */}
               <motion.div
                 whileTap={{ scale: 0.9 }}
@@ -293,12 +249,14 @@ export default function SpecPost() {
                   e.stopPropagation();
                   handleLikePost(post._id);
                 }}
-                className={`flex cursor-pointer items-center gap-1 ${likeCounts[post._id] ? "text-blue-500" : "text-gray-500"}`}
+                className={`flex cursor-pointer items-center gap-1 ${
+                  likeCounts[post._id] ? "text-blue-500" : "text-gray-500"
+                }`}
               >
                 <motion.div
                   animate={{
                     scale: likeCounts[post._id] ? [1, 1.3, 1] : 1,
-                    transition: { duration: 0.3 }
+                    transition: { duration: 0.3 },
                   }}
                 >
                   <BiSolidLike className="text-xl" />
@@ -327,13 +285,15 @@ export default function SpecPost() {
                   e.stopPropagation();
                   handleSavePost(post._id);
                 }}
-                className={`cursor-pointer flex items-center gap-1 ${saveCounts[post._id] ? "text-green-500" : "text-gray-500"}`}
+                className={`cursor-pointer flex items-center gap-1 ${
+                  saveCounts[post._id] ? "text-green-500" : "text-gray-500"
+                }`}
               >
                 <FaBookmark className="text-xl" />
               </motion.div>
             </div>
 
-            {post?.id === post.author?._id && (
+            {user?.id === post.author?._id && (
               <div className="flex gap-4">
                 <motion.button
                   whileHover={{ scale: 1.1 }}
@@ -364,7 +324,9 @@ export default function SpecPost() {
 
           {post.files?.urls?.length > 0 && (
             <div className="mt-6">
-              <h4 className="text-sm font-medium text-gray-500 mb-2">Attachments</h4>
+              <h4 className="text-sm font-medium text-gray-500 mb-2">
+                Attachments
+              </h4>
               <div className="flex flex-wrap gap-3">
                 {post.files.urls.map((file) => (
                   <motion.a

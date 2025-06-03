@@ -1,64 +1,74 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import { useUser } from "../../Context/UserContext";
 import { toast } from "react-toastify";
+import { ThreeDots } from "react-loader-spinner"; // ThreeDots spinner
 
-export default function SavedPosts() {
+const SavedPosts = () => {
   const [savedPosts, setSavedPosts] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const { user } = useUser();
+
+  const fetchSavedPosts = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await axios.get(
+        "https://knowledge-sharing-pied.vercel.app/interaction/saved_posts",
+        {
+          headers: {
+            token: user?.token,
+          },
+        }
+      );
+
+      setSavedPosts(response.data);
+    } catch (error) {
+      const errMsg =
+        error.response?.data?.message || "Failed to load saved posts.";
+      setError(errMsg);
+      toast.error(errMsg);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchSavedPosts = async () => {
-      setIsLoading(true);
-      const token = localStorage.getItem("token");
-
-      try {
-        const { data } = await axios.get(
-          "https://knowledge-sharing-pied.vercel.app/interaction/saved_posts",
-          {
-            headers: {
-              token: `noteApp__${token}`,
-            },
-          }
-        );
-        console.log(data);
-        setSavedPosts(data?.posts || []);
-      } catch (error) {
-        toast.error("Failed to load saved posts.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchSavedPosts();
-  }, []);
-
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <p className="text-xl font-semibold">Loading...</p>
-      </div>
-    );
-  }
+    if (user?.token) {
+      fetchSavedPosts();
+    }
+  }, [user]);
 
   return (
-    <div className="p-4">
-      <h1 className="text-2xl font-bold mb-6 text-center">Saved Posts</h1>
-
-      {savedPosts.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {savedPosts.map((post) => (
-            <div
-              key={post._id}
-              className="border rounded p-4 shadow hover:shadow-md transition"
-            >
-              <h2 className="text-xl font-semibold mb-2">{post.title}</h2>
-              <p className="text-gray-700">{post.content}</p>
-            </div>
-          ))}
+    <div className="p-4 bg-white min-h-[200px]">
+      {loading ? (
+        <div className="flex justify-center items-center py-10">
+          <ThreeDots
+            height="60"
+            width="60"
+            radius="9"
+            color="#000"
+            ariaLabel="three-dots-loading"
+            visible={true}
+          />
         </div>
+      ) : error ? (
+        <div className="text-center text-red-600 font-semibold">{error}</div>
+      ) : savedPosts.length > 0 ? (
+        <ul className="space-y-4">
+          {savedPosts.map((post) => (
+            <li key={post._id} className="border p-3 rounded shadow-sm">
+              <h3 className="text-lg font-semibold">{post.title}</h3>
+              <p>{post.content}</p>
+            </li>
+          ))}
+        </ul>
       ) : (
-        <p className="text-center text-gray-500">No saved posts yet.</p>
+        <p className="text-center text-gray-500">No saved posts found.</p>
       )}
     </div>
   );
-}
+};
+
+export default SavedPosts;

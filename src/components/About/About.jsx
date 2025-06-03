@@ -1,6 +1,5 @@
 import React from "react";
 import AboutPic from "../../assets/images/smiling-volunteers-helping-disabled-people-isolated-flat-illustration-cartoon-illustration_74855-14516.jpg";
-
 export default function AboutUs() {
   return (
     <div className="bg-white min-h-screen flex items-center justify-center px-6 py-12">

@@ -2,7 +2,12 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import { AiFillEye, AiFillEyeInvisible, AiOutlineLock, AiOutlineMail } from "react-icons/ai";
+import {
+  AiFillEye,
+  AiFillEyeInvisible,
+  AiOutlineLock,
+  AiOutlineMail,
+} from "react-icons/ai";
 import { Link } from "react-router-dom";
 import { useFormik } from "formik";
 import * as Yup from "yup";
@@ -27,7 +32,7 @@ export default function AdminLogin() {
   const [apiSuccess, setApiSuccess] = useState(false);
 
   useEffect(() => {
-    if (admin?.token) { // تحقق من وجود token بدلاً من isAdminAuthenticated
+    if (admin?.token) {
       navigate("/admin/dashboard");
     }
   }, [admin, navigate]);
@@ -51,7 +56,7 @@ export default function AdminLogin() {
       // استدعاء updateAdmin لحفظ البيانات في context و localStorage
       updateAdmin({
         ...adminData,
-        token: token.startsWith("noteApp__") ? token : `noteApp__${token}`
+        token: token.startsWith("noteApp__") ? token : `noteApp__${token}`,
       });
 
       setTimeout(() => {
@@ -63,7 +68,6 @@ export default function AdminLogin() {
     } finally {
       setIsLoading(false);
     }
-
   };
 
   const formik = useFormik({
@@ -72,7 +76,7 @@ export default function AdminLogin() {
       password: "",
     },
     validationSchema: loginSchema,
-    onSubmit: handleLogin
+    onSubmit: handleLogin,
   });
 
   return (
@@ -90,7 +94,9 @@ export default function AdminLogin() {
               <AiOutlineLock className="text-white text-2xl" />
             </div>
             <h1 className="mt-4 text-2xl font-bold text-white">Admin Portal</h1>
-            <p className="text-white/80 mt-1">Secure access to your dashboard</p>
+            <p className="text-white/80 mt-1">
+              Secure access to your dashboard
+            </p>
           </div>
 
           <div className="p-8">
@@ -141,9 +147,7 @@ export default function AdminLogin() {
                       clipRule="evenodd"
                     />
                   </svg>
-                  <span className="ml-2 text-sm text-red-100">
-                    {apiError}
-                  </span>
+                  <span className="ml-2 text-sm text-red-100">{apiError}</span>
                 </div>
               </motion.div>
             )}
@@ -164,10 +168,11 @@ export default function AdminLogin() {
                     onBlur={formik.handleBlur}
                     value={formik.values.email}
                     placeholder="admin@example.com"
-                    className={`w-full pl-10 pr-4 py-3 bg-white/5 border ${formik.touched.email && formik.errors.email
-                      ? "border-red-400 focus:ring-red-400"
-                      : "border-white/10 focus:ring-indigo-400"
-                      } rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:border-transparent transition-all`}
+                    className={`w-full pl-10 pr-4 py-3 bg-white/5 border ${
+                      formik.touched.email && formik.errors.email
+                        ? "border-red-400 focus:ring-red-400"
+                        : "border-white/10 focus:ring-indigo-400"
+                    } rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:border-transparent transition-all`}
                   />
                 </div>
                 {formik.touched.email && formik.errors.email && (
@@ -196,10 +201,11 @@ export default function AdminLogin() {
                     onBlur={formik.handleBlur}
                     value={formik.values.password}
                     placeholder="••••••••"
-                    className={`w-full pl-10 pr-12 py-3 bg-white/5 border ${formik.touched.password && formik.errors.password
-                      ? "border-red-400 focus:ring-red-400"
-                      : "border-white/10 focus:ring-indigo-400"
-                      } rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:border-transparent transition-all`}
+                    className={`w-full pl-10 pr-12 py-3 bg-white/5 border ${
+                      formik.touched.password && formik.errors.password
+                        ? "border-red-400 focus:ring-red-400"
+                        : "border-white/10 focus:ring-indigo-400"
+                    } rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:border-transparent transition-all`}
                   />
                   <button
                     type="button"
@@ -253,12 +259,13 @@ export default function AdminLogin() {
                 whileTap={{ scale: apiSuccess ? 1 : 0.98 }}
                 type="submit"
                 disabled={isLoading || apiSuccess}
-                className={`w-full flex justify-center items-center py-4 px-6 rounded-xl text-sm font-medium text-white transition-all duration-300 shadow-lg ${apiSuccess
-                  ? "bg-green-500 hover:bg-green-600 cursor-default"
-                  : isLoading
+                className={`w-full flex justify-center items-center py-4 px-6 rounded-xl text-sm font-medium text-white transition-all duration-300 shadow-lg ${
+                  apiSuccess
+                    ? "bg-green-500 hover:bg-green-600 cursor-default"
+                    : isLoading
                     ? "bg-indigo-400 cursor-not-allowed"
                     : "bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600"
-                  }`}
+                }`}
               >
                 {apiSuccess ? (
                   <>

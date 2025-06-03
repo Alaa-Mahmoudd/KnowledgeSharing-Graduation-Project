@@ -33,7 +33,6 @@ import EditPost from "./components/EditPost/EditPost.jsx";
 import { AdminProvider } from "./Context/AdminContext.jsx";
 import AdminLayout from "./components/AdminLayout/AdminLayout.jsx";
 import AdminProtectedRoute from "./components/AdminProtectedRoute/AdminProtectedRoute.jsx";
-
 const router = createBrowserRouter([
   {
     path: "",
@@ -217,19 +216,21 @@ const router = createBrowserRouter([
 // Create a wrapper component that combines UserProvider and RouterProvider
 const AppWithProviders = () => {
   return (
-    <UserProvider>
-      <AdminProvider>
-        <RouterProvider router={router} />
-      </AdminProvider>
-    </UserProvider>
+    <div className="bg-white">
+      <UserProvider>
+        <AdminProvider>
+          <RouterProvider router={router} />
+        </AdminProvider>
+      </UserProvider>
+    </div>
   );
 };
 
 function App() {
   return (
-    <>
+    <div className="bg-white">
       <AppWithProviders />
-    </>
+    </div>
   );
 }
 

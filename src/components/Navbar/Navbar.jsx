@@ -1,7 +1,18 @@
 import React, { useState, useEffect } from "react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useUser } from "../../Context/UserContext";
-import { FaBell, FaRegBell, FaBars, FaTimes, FaStar, FaComment, FaThumbsUp, FaUserPlus, FaChevronRight } from "react-icons/fa";
+import {
+  FaBell,
+  FaRegBell,
+  FaBars,
+  FaTimes,
+  FaStar,
+  FaComment,
+  FaThumbsUp,
+  FaUserPlus,
+  FaChevronRight,
+  FaCheck,
+} from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
 
@@ -11,7 +22,7 @@ const notificationService = {
   fetchAll: async (token) => {
     try {
       const response = await axios.get(API_URL, {
-        headers: { token: token }
+        headers: { token: token },
       });
       return response.data;
     } catch (error) {
@@ -21,15 +32,19 @@ const notificationService = {
   },
   markAsRead: async (id, token) => {
     try {
-      await axios.patch(`${API_URL}/${id}/read`, {}, {
-        headers: { token: token }
-      });
+      await axios.patch(
+        `${API_URL}/${id}/read`,
+        {},
+        {
+          headers: { token: token },
+        }
+      );
       return true;
     } catch (error) {
       console.error("Failed to mark notification as read:", error);
       return false;
     }
-  }
+  },
 };
 
 const notificationIcons = {
@@ -37,7 +52,7 @@ const notificationIcons = {
   comment: <FaComment className="text-green-400" />,
   like: <FaThumbsUp className="text-blue-400" />,
   follow: <FaUserPlus className="text-purple-400" />,
-  default: <FaBell className="text-pink-400" />
+  default: <FaBell className="text-pink-400" />,
 };
 
 const notificationMessages = {
@@ -45,7 +60,7 @@ const notificationMessages = {
   comment: (sender, post) => `${sender} commented on your post "${post}"`,
   like: (sender, post) => `${sender} liked your post "${post}"`,
   follow: (sender) => `${sender} started following you`,
-  default: () => "You have a new notification"
+  default: () => "You have a new notification",
 };
 
 export default function Navbar() {
@@ -57,7 +72,7 @@ export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const hasUnread = notifications.some(n => !n.isRead);
+  const hasUnread = notifications.some((n) => !n.isRead);
 
   const loadNotifications = async () => {
     if (!user?.token) return;
@@ -77,21 +92,24 @@ export default function Navbar() {
     const notification = notifications.find(n => n._id === notificationId);
     if (!notification || notification.isRead) return;
 
-    const success = await notificationService.markAsRead(notificationId, user.token);
+    const success = await notificationService.markAsRead(
+      notificationId,
+      user.token
+    );
     if (success) {
-      setNotifications(notifications.map(n =>
-        n._id === notificationId ? { ...n, isRead: true } : n
-      ));
+      setNotifications(
+        notifications.map((n) =>
+          n._id === notificationId ? { ...n, isRead: true } : n
+        )
+      );
     }
   };
 
   const handleNotificationClick = async (notification) => {
-    // Mark as read first
     if (!notification.isRead) {
       await handleMarkAsRead(notification._id);
     }
 
-    // Then navigate
     if (notification.postId?._id) {
       navigate(`/post/${notification.postId._id}`);
     } else if (notification.sender?._id) {
@@ -111,13 +129,15 @@ export default function Navbar() {
 
     if (diffInSeconds < 60) return "Just now";
     if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
-    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+    if (diffInSeconds < 86400)
+      return `${Math.floor(diffInSeconds / 3600)}h ago`;
     return `${Math.floor(diffInSeconds / 86400)}d ago`;
   };
 
   const navItems = [
     { path: "/home", label: "Home" },
     { path: "/post", label: "Posts" },
+    { path: "/shop", label: "Shop" },
     { path: "/profile", label: "Profile" },
   ];
 
@@ -132,7 +152,6 @@ export default function Navbar() {
     setMobileMenuOpen(false);
   }, [location.pathname]);
 
-  // Improved notification component
   const NotificationItem = ({ notification }) => (
     <motion.li
       initial={{ opacity: 0, y: 10 }}
@@ -140,8 +159,8 @@ export default function Navbar() {
       transition={{ duration: 0.3 }}
       onClick={() => handleNotificationClick(notification)}
       className={`p-3 rounded-lg cursor-pointer transition-colors ${!notification.isRead
-        ? "bg-blue-50 border-l-2 border-blue-500"
-        : "hover:bg-gray-50"
+          ? "bg-blue-50 border-l-2 border-blue-500"
+          : "hover:bg-gray-50"
         }`}
     >
       <div className="flex items-start">
@@ -229,7 +248,7 @@ export default function Navbar() {
                     aria-label="Notifications"
                     style={{
                       background: "linear-gradient(145deg, #ffffff, #f5f5f5)",
-                      boxShadow: "5px 5px 10px #d9d9d9, -5px -5px 10px #ffffff"
+                      boxShadow: "5px 5px 10px #d9d9d9, -5px -5px 10px #ffffff",
                     }}
                   >
                     <div className="relative">
@@ -237,7 +256,7 @@ export default function Navbar() {
                         <motion.div
                           animate={{
                             rotate: [0, 10, -10, 0],
-                            scale: [1, 1.2, 1]
+                            scale: [1, 1.2, 1],
                           }}
                           transition={{ duration: 0.7 }}
                         >
@@ -263,8 +282,12 @@ export default function Navbar() {
                         initial={{ opacity: 0, y: -20, scale: 0.95 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -20, scale: 0.95 }}
-                        transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                        className="absolute right-0 mt-2 w-96 bg-white/90 backdrop-blur-lg rounded-2xl shadow-2xl z-50 overflow-hidden border border-gray-100"
+                        transition={{
+                          type: "spring",
+                          stiffness: 400,
+                          damping: 30,
+                        }}
+                        className="absolute right-0 mt-2 w-100 bg-white/90 backdrop-blur-lg rounded-2xl shadow-2xl z-50 overflow-hidden border border-gray-100"
                       >
                         {/* Glowing header */}
                         <div className="p-4 flex justify-between items-center bg-gradient-to-r from-blue-50/80 to-purple-50/80">
@@ -287,7 +310,9 @@ export default function Navbar() {
                           {loading ? (
                             <div className="flex flex-col items-center justify-center py-12">
                               <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500 mb-4"></div>
-                              <p className="text-gray-500">Loading your notifications...</p>
+                              <p className="text-gray-500">
+                                Loading your notifications...
+                              </p>
                             </div>
                           ) : notifications.length > 0 ? (
                             <ul className="space-y-2">
@@ -305,7 +330,8 @@ export default function Navbar() {
                                 No notifications yet
                               </h4>
                               <p className="text-gray-500 max-w-xs">
-                                When you receive notifications, they'll appear here
+                                When you receive notifications, they'll appear
+                                here
                               </p>
                             </div>
                           )}
@@ -359,7 +385,7 @@ export default function Navbar() {
                 aria-label="Notifications"
                 style={{
                   background: "linear-gradient(145deg, #ffffff, #f5f5f5)",
-                  boxShadow: "3px 3px 6px #d9d9d9, -3px -3px 6px #ffffff"
+                  boxShadow: "3px 3px 6px #d9d9d9, -3px -3px 6px #ffffff",
                 }}
               >
                 <div className="relative">
@@ -385,7 +411,7 @@ export default function Navbar() {
               aria-label="Menu"
               style={{
                 background: "linear-gradient(145deg, #ffffff, #f5f5f5)",
-                boxShadow: "3px 3px 6px #d9d9d9, -3px -3px 6px #ffffff"
+                boxShadow: "3px 3px 6px #d9d9d9, -3px -3px 6px #ffffff",
               }}
             >
               {mobileMenuOpen ? <FaTimes size={20} /> : <FaBars size={20} />}
@@ -396,7 +422,7 @@ export default function Navbar() {
               {mobileMenuOpen && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
+                  animate={{ opacity: 1, height: "auto" }}
                   exit={{ opacity: 0, height: 0 }}
                   transition={{ duration: 0.3, ease: "easeInOut" }}
                   className="md:hidden fixed top-16 left-0 right-0 bg-white/95 backdrop-blur-lg overflow-hidden border-t border-gray-100 shadow-lg z-50"
@@ -513,7 +539,11 @@ export default function Navbar() {
                         <div className="p-8 flex flex-col items-center justify-center text-gray-500">
                           <motion.div
                             animate={{ rotate: 360 }}
-                            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                            transition={{
+                              duration: 1,
+                              repeat: Infinity,
+                              ease: "linear",
+                            }}
                             className="rounded-full h-8 w-8 border-2 border-blue-500 border-t-transparent mb-2"
                           />
                           <p>Loading notifications...</p>
@@ -532,7 +562,8 @@ export default function Navbar() {
                             >
                               <div className="flex items-start">
                                 <div className="flex-shrink-0 pt-1 text-2xl">
-                                  {notificationIcons[notification.type] || notificationIcons.default}
+                                  {notificationIcons[notification.type] ||
+                                    notificationIcons.default}
                                 </div>
                                 <div className="ml-3 flex-1 min-w-0">
                                   <div className="flex justify-between items-baseline">
