@@ -66,12 +66,25 @@ export default function Post() {
     muted: "#6B7280",
   };
 
-  // Load interactions from localStorage
+  // Change the initial state loading
   useEffect(() => {
     const storedLikes = JSON.parse(localStorage.getItem("likes")) || {};
     const storedSaves = JSON.parse(localStorage.getItem("saves")) || {};
-    setLikeCounts(storedLikes);
-    setSaveCounts(storedSaves);
+
+    // Ensure we're only storing numbers in likeCounts
+    const validatedLikes = {};
+    Object.entries(storedLikes).forEach(([key, value]) => {
+      validatedLikes[key] = typeof value === 'number' ? value : 0;
+    });
+
+    // Ensure we're only storing booleans in saveCounts
+    const validatedSaves = {};
+    Object.entries(storedSaves).forEach(([key, value]) => {
+      validatedSaves[key] = typeof value === 'boolean' ? value : false;
+    });
+
+    setLikeCounts(validatedLikes);
+    setSaveCounts(validatedSaves);
   }, []);
   // Get all posts
   const getAllPosts = async () => {
@@ -87,14 +100,14 @@ export default function Post() {
         files: post.files || { urls: [] },
         sub_category: post.sub_category || null,
         isFlagged: post.isFlagged || false,
-        isLiked: post.isLiked || false,
+        isLiked: !!post.isLiked, // Ensure boolean
         isRated: post.isRated || false,
         isSaved: post.isSaved || false,
-        likes_count: post.likes_count || 0,
-        ratings_count: post.ratings_count || 0,
-        saves_count: post.saves_count || 0,
-        interactions: post.interactions || [],
-        comments: post.comments || []
+        likes_count: typeof post.likes_count === 'number' ? post.likes_count : 0,
+        ratings_count: typeof post.ratings_count === 'number' ? post.ratings_count : 0,
+        saves_count: typeof post.saves_count === 'number' ? post.saves_count : 0,
+        interactions: Array.isArray(post.interactions) ? post.interactions : [],
+        comments: Array.isArray(post.comments) ? post.comments : []
       }));
 
       setPosts(processedPosts);
@@ -148,6 +161,8 @@ export default function Post() {
         );
       });
     }
+
+
 
     setFilteredPosts(filtered);
   }, [selectedCategory, selectedSubCategory, posts, searchQuery]);
@@ -268,19 +283,24 @@ export default function Post() {
           },
         }
       );
+      const likesCount = typeof response.data.likesCount === 'number'
+        ? response.data.likesCount
+        : 0;
 
       setLikeCounts((prev) => ({
         ...prev,
-        [postId]: response.data.likesCount,
+        [postId]: likesCount
       }));
 
       localStorage.setItem(
         "likes",
         JSON.stringify({
           ...likeCounts,
-          [postId]: response.data.likesCount,
+          [postId]: likesCount
         })
       );
+
+
 
       toast.success(response.data.message || "Post liked!");
     } catch (error) {
@@ -867,6 +887,26 @@ export default function Post() {
                         {post.content}
                       </p>
 
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          speakText(post.title, post.content);
+                        }}
+                        className="flex items-center gap-2 text-indigo-600 hover:text-indigo-800 mb-6"
+                      >
+                        <motion.div
+                          animate={{
+                            scale: [1, 1.1, 1],
+                            transition: { repeat: Infinity, duration: 2 },
+                          }}
+                        >
+                          <FaVolumeUp className="text-xl" />
+                        </motion.div>
+                        <span className="font-medium">Listen to this post</span>
+                      </motion.button>
+
                       {post.files?.urls?.length > 0 && (
                         <div className="mb-4">
                           {post.files.urls.slice(0, 2).map((file) => (
@@ -889,13 +929,12 @@ export default function Post() {
                         <div className="flex items-center space-x-4">
                           <div
                             onClick={(e) => handleLikePost(post._id, e)}
-                            className={`flex cursor-pointer items-center gap-1 ${likeCounts[post._id] ? "text-blue-500" : ""
-                              }`}
+                            className={`flex cursor-pointer items-center gap-1 ${likeCounts[post._id] ? "text-blue-500" : ""}`}
                             title="Like"
                           >
                             <BiSolidLike />
                             <span className="text-black">
-                              {likeCounts[post._id] || 0}
+                              {typeof likeCounts[post._id] === 'number' ? likeCounts[post._id] : 0}
                             </span>
                           </div>
 
@@ -927,31 +966,31 @@ export default function Post() {
                         </div>
 
                         <div className="flex gap-2">
-                          {user?.id === post.author?._id && (
-                            <>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  navigate(`/editPost/${post._id}`);
-                                }}
-                                className="cursor-pointer text-gray-500 hover:text-blue-800"
-                                title="Edit"
-                              >
-                                <FaEdit size={20} />
-                              </button>
 
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDeletePost(post._id);
-                                }}
-                                className="cursor-pointer text-gray-500 hover:text-red-800"
-                                title="Delete"
-                              >
-                                <MdDelete size={20} />
-                              </button>
-                            </>
-                          )}
+                          <>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/editPost/${post._id}`);
+                              }}
+                              className="cursor-pointer text-gray-500 hover:text-blue-800"
+                              title="Edit"
+                            >
+                              <FaEdit size={20} />
+                            </button>
+
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeletePost(post._id);
+                              }}
+                              className="cursor-pointer text-gray-500 hover:text-red-800"
+                              title="Delete"
+                            >
+                              <MdDelete size={20} />
+                            </button>
+                          </>
+
                         </div>
                       </div>
 
