@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import CategoriesSidebar from "../CategoriesSidebar/CategoriesSidebar.jsx";
 import axios from "axios";
-import { MdDelete } from 'react-icons/md';
+import { MdDelete } from "react-icons/md";
 import {
   FaFilePdf,
   FaRegCommentDots,
@@ -66,13 +66,52 @@ export default function Post() {
     muted: "#6B7280",
   };
 
-  // Load interactions from localStorage
+  // Load interactions from localStorage and server
   useEffect(() => {
     const storedLikes = JSON.parse(localStorage.getItem("likes")) || {};
     const storedSaves = JSON.parse(localStorage.getItem("saves")) || {};
+
+    // Load initial likes counts
+    Object.keys(storedLikes).forEach((postId) => {
+      getLikesCount(postId);
+    });
+
     setLikeCounts(storedLikes);
     setSaveCounts(storedSaves);
-  }, []);
+
+    // Load saved posts from server
+    const loadSavedPosts = async () => {
+      try {
+        if (user?.token) {
+          const response = await axios.get(
+            "https://knowledge-sharing-pied.vercel.app/interaction/saved_posts",
+            {
+              headers: {
+                token: user.token,
+              },
+            }
+          );
+
+          const savedPosts = response.data.savedPosts || [];
+          const savedState = {};
+          savedPosts.forEach((post) => {
+            savedState[post._id] = true;
+          });
+
+          setSaveCounts((prev) => ({ ...prev, ...savedState }));
+          localStorage.setItem(
+            "saves",
+            JSON.stringify({ ...storedSaves, ...savedState })
+          );
+        }
+      } catch (error) {
+        console.error("Error loading saved posts:", error);
+      }
+    };
+
+    loadSavedPosts();
+  }, [user?.token]);
+
   // Get all posts
   const getAllPosts = async () => {
     try {
@@ -80,24 +119,23 @@ export default function Post() {
         "https://knowledge-sharing-pied.vercel.app/post/list"
       );
 
-      const processedPosts = data.posts.map(post => ({
+      const processedPosts = data.posts.map((post) => ({
         ...post,
         title: post.title || "Untitled Post",
         content: post.content || "",
         files: post.files || { urls: [] },
         sub_category: post.sub_category || null,
         isFlagged: post.isFlagged || false,
-        isLiked: post.isLiked || false,
-        isRated: post.isRated || false,
-        isSaved: post.isSaved || false,
         likes_count: post.likes_count || 0,
-        ratings_count: post.ratings_count || 0,
-        saves_count: post.saves_count || 0,
-        interactions: post.interactions || [],
-        comments: post.comments || []
       }));
 
       setPosts(processedPosts);
+
+      // Fetch likes count for each post
+      processedPosts.forEach((post) => {
+        getLikesCount(post._id);
+      });
+
       setIsLoading(false);
     } catch (error) {
       console.error("Error fetching posts:", error);
@@ -107,11 +145,16 @@ export default function Post() {
   };
 
   useEffect(() => {
+    getAllPosts();
+  }, []);
+
+  useEffect(() => {
     const loadInitialData = async () => {
       await getAllPosts();
 
       // Load comments for all posts initially
-      const initialComments = JSON.parse(localStorage.getItem("comments")) || {};
+      const initialComments =
+        JSON.parse(localStorage.getItem("comments")) || {};
       setComments(initialComments);
 
       // Fetch fresh comments for all posts
@@ -128,12 +171,12 @@ export default function Post() {
     let filtered = posts;
 
     if (selectedSubCategory) {
-      filtered = filtered.filter(post =>
-        post.sub_category?._id === selectedSubCategory._id
+      filtered = filtered.filter(
+        (post) => post.sub_category?._id === selectedSubCategory._id
       );
     } else if (selectedCategory) {
-      filtered = filtered.filter(post =>
-        post.sub_category?.category === selectedCategory._id
+      filtered = filtered.filter(
+        (post) => post.sub_category?.category === selectedCategory._id
       );
     }
 
@@ -152,10 +195,11 @@ export default function Post() {
     setFilteredPosts(filtered);
   }, [selectedCategory, selectedSubCategory, posts, searchQuery]);
 
-
   // Voice Search using Web Speech API
   useEffect(() => {
-    if (!("webkitSpeechRecognition" in window || "SpeechRecognition" in window)) {
+    if (
+      !("webkitSpeechRecognition" in window || "SpeechRecognition" in window)
+    ) {
       console.warn("Speech Recognition not supported in this browser.");
       return;
     }
@@ -210,24 +254,6 @@ export default function Post() {
     }
   };
 
-  // Real-time filtering
-  useEffect(() => {
-    if (searchQuery.trim() === "") {
-      setFilteredPosts(posts);
-    } else {
-      const filtered = posts.filter((post) => {
-        const searchLower = searchQuery.toLowerCase();
-        return (
-          (post.title && post.title.toLowerCase().includes(searchLower)) ||
-          (post.content && post.content.toLowerCase().includes(searchLower)) ||
-          (post.author?.name &&
-            post.author.name.toLowerCase().includes(searchLower))
-        );
-      });
-      setFilteredPosts(filtered);
-    }
-  }, [searchQuery, posts]);
-
   // Handle delete post
   const handleDeletePost = async (postId) => {
     try {
@@ -244,49 +270,6 @@ export default function Post() {
     } catch (error) {
       toast.error("Failed to delete post. Try again.");
       console.error("Delete post error:", error);
-    }
-  };
-
-  // Handle like post
-  const handleLikePost = async (postId, e) => {
-    e.stopPropagation();
-    if (!user) {
-      toast.error("Please login to like posts");
-      navigate("/login");
-      return;
-    }
-
-    setIsLoadingLike(true);
-
-    try {
-      const response = await axios.post(
-        `https://knowledge-sharing-pied.vercel.app/interaction/${postId}/like`,
-        {},
-        {
-          headers: {
-            token: token,
-          },
-        }
-      );
-
-      setLikeCounts((prev) => ({
-        ...prev,
-        [postId]: response.data.likesCount,
-      }));
-
-      localStorage.setItem(
-        "likes",
-        JSON.stringify({
-          ...likeCounts,
-          [postId]: response.data.likesCount,
-        })
-      );
-
-      toast.success(response.data.message || "Post liked!");
-    } catch (error) {
-      toast.error(error.response?.data?.message || "Failed to like post.");
-    } finally {
-      setIsLoadingLike(false);
     }
   };
 
@@ -311,10 +294,14 @@ export default function Post() {
         }
       );
 
-      setSaveCounts((prev) => ({
-        ...prev,
-        [postId]: !prev[postId],
-      }));
+      setSaveCounts((prev) => {
+        const newState = {
+          ...prev,
+          [postId]: !prev[postId],
+        };
+        localStorage.setItem("saves", JSON.stringify(newState));
+        return newState;
+      });
 
       toast.success(
         saveCounts[postId]
@@ -335,21 +322,95 @@ export default function Post() {
     });
   }, [posts]);
 
-  // Get like counts
+  // Get likes count for a post
   const getLikesCount = async (postId) => {
     try {
       const response = await axios.get(
         `https://knowledge-sharing-pied.vercel.app/interaction/${postId}/likes_count`
       );
+
       setLikeCounts((prevCounts) => ({
         ...prevCounts,
-        [postId]: response.data.likesCount,
+        [postId]: {
+          count: response.data.likes_count,
+          isLiked: prevCounts[postId]?.isLiked || false,
+        },
       }));
     } catch (error) {
       console.error("Error fetching like count:", error);
+
+      setLikeCounts((prevCounts) => ({
+        ...prevCounts,
+        [postId]: {
+          count: 0,
+          isLiked: prevCounts[postId]?.isLiked || false,
+        },
+      }));
     }
   };
 
+  // Handle like post
+  const handleLikePost = async (postId, e) => {
+    e.stopPropagation();
+    if (!user) {
+      toast.error("Please login to like posts");
+      navigate("/login");
+      return;
+    }
+
+    setIsLoadingLike(true);
+
+    try {
+      const response = await axios.post(
+        `https://knowledge-sharing-pied.vercel.app/interaction/${postId}/like`,
+        {},
+        { headers: { token } }
+      );
+
+      setLikeCounts((prev) => ({
+        ...prev,
+        [postId]: {
+          count: response.data.likes_count,
+          isLiked: !prev[postId]?.isLiked,
+        },
+      }));
+
+      toast.success(response.data.message || "Post liked!");
+    } catch (error) {
+      console.error("Like post error:", error);
+      toast.error(error.response?.data?.message || "Failed to like post.");
+    } finally {
+      setIsLoadingLike(false);
+    }
+  };
+  useEffect(() => {
+    const loadInitialData = async () => {
+      try {
+        const { data } = await axios.get(
+          "https://knowledge-sharing-pied.vercel.app/post/list"
+        );
+
+        const processedPosts = data.posts.map((post) => ({
+          ...post,
+          likes_count: post.likes_count || 0,
+        }));
+
+        setPosts(processedPosts);
+
+        processedPosts.forEach((post) => {
+          getLikesCount(post._id);
+        });
+
+        setIsLoading(false);
+      } catch (error) {
+        console.error("Error fetching posts:", error);
+        setError("Failed to load posts. Please try again.");
+        setIsLoading(false);
+      }
+    };
+
+    loadInitialData();
+  }, []);
   const speakText = (title, content) => {
     if ("speechSynthesis" in window) {
       const text = `${title}. ${content}`;
@@ -484,7 +545,11 @@ export default function Post() {
           initial={{ opacity: 0, x: -10 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.3 }}
-          className={`mt-3 ${depth > 0 ? 'ml-6 pl-4 relative before:absolute before:left-0 before:top-0 before:h-full before:w-0.5 before:bg-gray-200' : ''}`}
+          className={`mt-3 ${
+            depth > 0
+              ? "ml-6 pl-4 relative before:absolute before:left-0 before:top-0 before:h-full before:w-0.5 before:bg-gray-200"
+              : ""
+          }`}
         >
           <div className="flex gap-3 items-start">
             <div className="flex-shrink-0">
@@ -507,8 +572,8 @@ export default function Post() {
                     </span>
                     <span className="text-xs text-gray-500 ml-2">
                       {new Date(c.createdAt).toLocaleTimeString([], {
-                        hour: '2-digit',
-                        minute: '2-digit'
+                        hour: "2-digit",
+                        minute: "2-digit",
                       })}
                     </span>
                   </div>
@@ -547,7 +612,7 @@ export default function Post() {
               {parentId === c._id && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
+                  animate={{ opacity: 1, height: "auto" }}
                   exit={{ opacity: 0, height: 0 }}
                   className="mt-3"
                 >
@@ -571,7 +636,9 @@ export default function Post() {
                       type="text"
                       value={text}
                       onChange={(e) => setText(e.target.value)}
-                      placeholder={`Reply to ${c.userId?.username || 'this comment'}...`}
+                      placeholder={`Reply to ${
+                        c.userId?.username || "this comment"
+                      }...`}
                       className="flex-1 text-sm border border-gray-200 rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-300 bg-white"
                       autoFocus
                     />
@@ -601,14 +668,17 @@ export default function Post() {
 
     useEffect(() => {
       const handleClickOutside = (event) => {
-        if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        if (
+          dropdownRef.current &&
+          !dropdownRef.current.contains(event.target)
+        ) {
           setIsOpen(false);
         }
       };
 
-      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener("mousedown", handleClickOutside);
       return () => {
-        document.removeEventListener('mousedown', handleClickOutside);
+        document.removeEventListener("mousedown", handleClickOutside);
       };
     }, []);
 
@@ -753,10 +823,11 @@ export default function Post() {
                   e.stopPropagation();
                   handleVoiceSearch();
                 }}
-                className={`p-2.5 rounded-lg ${isListening
-                  ? "bg-red-100 text-red-500 shadow-sm"
-                  : "text-gray-500 hover:text-indigo-600 bg-gray-50 hover:bg-gray-100"
-                  }`}
+                className={`p-2.5 rounded-lg ${
+                  isListening
+                    ? "bg-red-100 text-red-500 shadow-sm"
+                    : "text-gray-500 hover:text-indigo-600 bg-gray-50 hover:bg-gray-100"
+                }`}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
@@ -819,8 +890,9 @@ export default function Post() {
                     )}
 
                     <div
-                      className={`${post.thumbnail ? "md:w-3/5" : "w-full"
-                        } p-5`}
+                      className={`${
+                        post.thumbnail ? "md:w-3/5" : "w-full"
+                      } p-5`}
                     >
                       <div
                         className="flex items-center mb-3 cursor-pointer"
@@ -889,13 +961,16 @@ export default function Post() {
                         <div className="flex items-center space-x-4">
                           <div
                             onClick={(e) => handleLikePost(post._id, e)}
-                            className={`flex cursor-pointer items-center gap-1 ${likeCounts[post._id] ? "text-blue-500" : ""
-                              }`}
+                            className={`flex cursor-pointer items-center gap-1 ${
+                              likeCounts[post._id]?.isLiked
+                                ? "text-blue-500"
+                                : "text-gray-500"
+                            }`}
                             title="Like"
                           >
                             <BiSolidLike />
-                            <span className="text-black">
-                              {likeCounts[post._id] || 0}
+                            <span className="text-black ml-1">
+                              {likeCounts[post._id]?.count ?? 0}
                             </span>
                           </div>
 
@@ -912,11 +987,11 @@ export default function Post() {
                               {comments[post._id]?.length || 0}
                             </span>
                           </div>
-
                           <div
                             onClick={(e) => handleSavePost(post._id, e)}
-                            className={`cursor-pointer flex items-center gap-1 ${saveCounts[post._id] ? "text-green-500" : ""
-                              }`}
+                            className={`cursor-pointer flex items-center gap-1 ${
+                              saveCounts[post._id] ? "text-green-500" : ""
+                            }`}
                             title="Save"
                           >
                             <FaBookmark />
@@ -927,31 +1002,29 @@ export default function Post() {
                         </div>
 
                         <div className="flex gap-2">
-                          {user?.id === post.author?._id && (
-                            <>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  navigate(`/editPost/${post._id}`);
-                                }}
-                                className="cursor-pointer text-gray-500 hover:text-blue-800"
-                                title="Edit"
-                              >
-                                <FaEdit size={20} />
-                              </button>
+                          <>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/editPost/${post._id}`);
+                              }}
+                              className="cursor-pointer text-gray-500 hover:text-blue-800"
+                              title="Edit"
+                            >
+                              <FaEdit size={20} />
+                            </button>
 
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDeletePost(post._id);
-                                }}
-                                className="cursor-pointer text-gray-500 hover:text-red-800"
-                                title="Delete"
-                              >
-                                <MdDelete size={20} />
-                              </button>
-                            </>
-                          )}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeletePost(post._id);
+                              }}
+                              className="cursor-pointer text-gray-500 hover:text-red-800"
+                              title="Delete"
+                            >
+                              <MdDelete size={20} />
+                            </button>
+                          </>
                         </div>
                       </div>
 
@@ -1054,4 +1127,3 @@ export default function Post() {
     </div>
   );
 }
-

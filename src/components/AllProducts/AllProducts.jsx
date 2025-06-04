@@ -52,9 +52,6 @@ export default function AllProducts() {
       return;
     }
 
-    if (!window.confirm("Are you sure you want to delete this product?"))
-      return;
-
     try {
       await axios.delete(
         `https://knowledge-sharing-pied.vercel.app/admin/${id}`,
@@ -132,36 +129,58 @@ export default function AllProducts() {
 
   const handleUpdateProduct = async (e) => {
     e.preventDefault();
+
     if (!token) {
       toast.error("Authentication required");
       return;
     }
 
     setIsSubmitting(true);
-    const formData = new FormData();
-    if (productImage) formData.append("productImage", productImage);
-    if (newProduct.name) formData.append("name", newProduct.name);
-    if (newProduct.description)
-      formData.append("description", newProduct.description);
-    if (newProduct.price) formData.append("price", newProduct.price);
-    if (newProduct.link) formData.append("link", newProduct.link);
+
+    if (productImage) {
+      toast.error("Updating product image is not supported");
+      setIsSubmitting(false);
+      return;
+    }
+
+    const payload = {
+      name: newProduct.name,
+      description: newProduct.description,
+      price: parseFloat(newProduct.price),
+      link: newProduct.link,
+    };
 
     try {
       await axios.put(
         `https://knowledge-sharing-pied.vercel.app/admin/${editingProduct._id}`,
-        formData,
+        payload,
         {
           headers: {
-            "Content-Type": "multipart/form-data",
+            "Content-Type": "application/json",
             token: token,
           },
         }
       );
 
       toast.success("Product updated successfully");
-      fetchProducts();
+
+      setProducts((prevProducts) =>
+        prevProducts.map((product) =>
+          product._id === editingProduct._id
+            ? {
+                ...product,
+                name: newProduct.name,
+                description: newProduct.description,
+                price: parseFloat(newProduct.price),
+                link: newProduct.link,
+              }
+            : product
+        )
+      );
+
       resetForm();
     } catch (err) {
+      console.error("Update error:", err.response?.data || err.message);
       if (err.response?.status === 401) {
         toast.error("Session expired, please login again");
         clearAdmin();

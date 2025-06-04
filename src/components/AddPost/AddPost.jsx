@@ -1,7 +1,16 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import { FaCamera, FaTrash, FaFilePdf, FaFileImage, FaFileAlt, FaPlus, FaPaperPlane, FaTimes } from "react-icons/fa";
+import {
+  FaCamera,
+  FaTrash,
+  FaFilePdf,
+  FaFileImage,
+  FaFileAlt,
+  FaPlus,
+  FaPaperPlane,
+  FaTimes,
+} from "react-icons/fa";
 import { ClipLoader } from "react-spinners";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast, ToastContainer } from "react-toastify";
@@ -56,8 +65,6 @@ export default function AddPost() {
       setIsLoading(false);
     }
   };
-
-
 
   return (
     <motion.div
@@ -116,9 +123,12 @@ export default function AddPost() {
             className="absolute bottom-3 right-3 text-gray-400 text-sm"
             animate={{
               color: content.length > 4500 ? "#ef4444" : "#9ca3af",
-              scale: content.length > 4500 ? [1, 1.05, 1] : 1
+              scale: content.length > 4500 ? [1, 1.05, 1] : 1,
             }}
-            transition={{ repeat: content.length > 4500 ? Infinity : 0, duration: 1 }}
+            transition={{
+              repeat: content.length > 4500 ? Infinity : 0,
+              duration: 1,
+            }}
           >
             {content.length}/5000
           </motion.div>
@@ -158,7 +168,7 @@ export default function AddPost() {
                     <motion.div
                       animate={{
                         y: [0, -3, 0],
-                        transition: { repeat: Infinity, duration: 2 }
+                        transition: { repeat: Infinity, duration: 2 },
                       }}
                     >
                       <FaCamera className="text-gray-400 text-xl mb-2" />
@@ -212,9 +222,9 @@ export default function AddPost() {
                     transition={{ duration: 0.2 }}
                     whileHover={{ y: -2 }}
                   >
-                    {file.type.includes('pdf') ? (
+                    {file.type.includes("pdf") ? (
                       <FaFilePdf className="text-red-500 mr-2" />
-                    ) : file.type.includes('image') ? (
+                    ) : file.type.includes("image") ? (
                       <FaFileImage className="text-blue-500 mr-2" />
                     ) : (
                       <FaFileAlt className="text-gray-500 mr-2" />
@@ -243,7 +253,7 @@ export default function AddPost() {
                 <motion.div
                   animate={{
                     scale: [1, 1.1, 1],
-                    transition: { repeat: Infinity, duration: 2 }
+                    transition: { repeat: Infinity, duration: 2 },
                   }}
                 >
                   <FaPlus className="text-gray-400" />
@@ -265,10 +275,11 @@ export default function AddPost() {
           <motion.button
             type="submit"
             disabled={isLoading}
-            className={`flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white font-semibold px-8 py-3 rounded-lg shadow-md ${isLoading
-              ? "opacity-80 cursor-not-allowed"
-              : "hover:shadow-lg hover:from-blue-700 hover:to-blue-600"
-              }`}
+            className={`flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white font-semibold px-8 py-3 rounded-lg shadow-md ${
+              isLoading
+                ? "opacity-80 cursor-not-allowed"
+                : "hover:shadow-lg hover:from-blue-700 hover:to-blue-600"
+            }`}
             whileHover={!isLoading ? { scale: 1.03, y: -2 } : {}}
             whileTap={!isLoading ? { scale: 0.98 } : {}}
           >
@@ -282,7 +293,7 @@ export default function AddPost() {
                 <motion.div
                   animate={{
                     x: [0, 5, 0],
-                    transition: { repeat: Infinity, duration: 2 }
+                    transition: { repeat: Infinity, duration: 2 },
                   }}
                 >
                   <FaPaperPlane size={16} />
