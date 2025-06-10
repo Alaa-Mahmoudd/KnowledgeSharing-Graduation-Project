@@ -374,6 +374,7 @@ export default function Post() {
         ...prevCounts,
         [postId]: {
           count: response.data.likes_count,
+
           isLiked: isLiked,
         },
       }));
@@ -383,6 +384,7 @@ export default function Post() {
         ...prevCounts,
         [postId]: {
           count: prevCounts[postId]?.count || 0,
+
           isLiked: prevCounts[postId]?.isLiked || false,
         },
       }));
@@ -428,6 +430,7 @@ export default function Post() {
         ...prev,
         [postId]: {
           count: response.data.likes_count || prev[postId]?.count,
+
           isLiked: !prev[postId]?.isLiked,
         },
       }));
@@ -811,17 +814,6 @@ export default function Post() {
                   <FaTrash className="mr-2" size={14} />
                   Delete Post
                 </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    speakText(post.title, post.content);
-                    setIsOpen(false);
-                  }}
-                  className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left"
-                >
-                  <FaVolumeUp className="mr-2" size={14} />
-                  Listen to Post
-                </button>
               </div>
             </motion.div>
           )}
@@ -1023,6 +1015,25 @@ export default function Post() {
                       >
                         {post.content}
                       </p>
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          speakText(post.title, post.content);
+                        }}
+                        className="flex items-center gap-2 text-indigo-600 hover:text-indigo-800 mb-6"
+                      >
+                        <motion.div
+                          animate={{
+                            scale: [1, 1.1, 1],
+                            transition: { repeat: Infinity, duration: 2 },
+                          }}
+                        >
+                          <FaVolumeUp className="text-xl" />
+                        </motion.div>
+                        <span className="font-medium">Listen to this post</span>
+                      </motion.button>
 
                       {post.files?.urls?.length > 0 && (
                         <div className="mb-4">
@@ -1099,31 +1110,29 @@ export default function Post() {
                         </div>
 
                         <div className="flex gap-2">
-                          {user?.id === post.author?._id && (
-                            <>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  navigate(`/editPost/${post._id}`);
-                                }}
-                                className="cursor-pointer text-gray-500 hover:text-blue-800"
-                                title="Edit"
-                              >
-                                <FaEdit size={20} />
-                              </button>
+                          <>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/editPost/${post._id}`);
+                              }}
+                              className="cursor-pointer text-gray-500 hover:text-blue-800"
+                              title="Edit"
+                            >
+                              <FaEdit size={20} />
+                            </button>
 
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDeletePost(post._id);
-                                }}
-                                className="cursor-pointer text-gray-500 hover:text-red-800"
-                                title="Delete"
-                              >
-                                <MdDelete size={20} />
-                              </button>
-                            </>
-                          )}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeletePost(post._id);
+                              }}
+                              className="cursor-pointer text-gray-500 hover:text-red-800"
+                              title="Delete"
+                            >
+                              <MdDelete size={20} />
+                            </button>
+                          </>
                         </div>
                       </div>
 

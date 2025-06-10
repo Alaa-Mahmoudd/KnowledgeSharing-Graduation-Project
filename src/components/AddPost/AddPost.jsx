@@ -11,6 +11,7 @@ import {
   FaPaperPlane,
   FaTimes,
 } from "react-icons/fa";
+import { useUser } from "../../Context/UserContext.jsx";
 import { ClipLoader } from "react-spinners";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast, ToastContainer } from "react-toastify";
@@ -22,7 +23,9 @@ export default function AddPost() {
   const [thumbnail, setThumbnail] = useState(null);
   const [files, setFiles] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const token = localStorage.getItem("token");
+  const { user } = useUser();
+  const token = user?.token;
+  
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -45,7 +48,7 @@ export default function AddPost() {
         {
           headers: {
             "Content-Type": "multipart/form-data",
-            token: `noteApp__${token}`,
+            token: token,
           },
         }
       );

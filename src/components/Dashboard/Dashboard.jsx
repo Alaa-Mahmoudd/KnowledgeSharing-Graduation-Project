@@ -11,6 +11,7 @@ import AllProducts from "../AllProducts/AllProducts.jsx";
 import { useAdmin } from "../../Context/AdminContext.jsx";
 import { useNavigate } from "react-router-dom";
 
+
 export default function Dashboard() {
   const { admin, clearAdmin } = useAdmin();
   const navigate = useNavigate();
@@ -19,6 +20,7 @@ export default function Dashboard() {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const token = admin?.token;
 
   const buttonClass = (tabName) =>
     `flex items-center gap-3 p-3 rounded-lg transition-all duration-200 hover:bg-indigo-50 hover:text-indigo-600 ${activeTab === tabName ? "bg-white text-indigo-600 shadow-md font-medium" : "text-gray-700"
@@ -26,7 +28,7 @@ export default function Dashboard() {
 
   const handleAddAdmin = async () => {
     try {
-      const token = localStorage.getItem("adminToken");
+
       const response = await axios.post(
         "https://knowledge-sharing-pied.vercel.app/admin/createAdmin",
         { email, name },

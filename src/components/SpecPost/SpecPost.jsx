@@ -49,13 +49,17 @@ export default function SpecPost() {
   useEffect(() => {
     const storedLikes = JSON.parse(localStorage.getItem("likes")) || {};
     const storedSaves = JSON.parse(localStorage.getItem("saves")) || {};
+
     const storedShowComments =
       JSON.parse(localStorage.getItem("showComments")) || {};
+
     const storedComments = JSON.parse(localStorage.getItem("comments")) || {};
 
     setLikeCounts(storedLikes);
     setSaveCounts(storedSaves);
+
     setShowComments(storedShowComments);
+
     setComments(storedComments);
 
     // Load saved posts from server if user is logged in
@@ -169,6 +173,7 @@ export default function SpecPost() {
       const response = await axios.post(
         `https://knowledge-sharing-pied.vercel.app/interaction/${postId}/like`,
         {},
+
         { headers: { token: token } }
       );
 
@@ -282,6 +287,7 @@ export default function SpecPost() {
   };
 
   // Fetch comments for a post
+
   const fetchComments = async (postId) => {
     try {
       const res = await axios.get(
@@ -293,6 +299,7 @@ export default function SpecPost() {
       setComments((prev) => {
         const newComments = {
           ...prev,
+
           [postId]: fetchedComments,
         };
         localStorage.setItem("comments", JSON.stringify(newComments));
@@ -702,6 +709,7 @@ export default function SpecPost() {
                 whileHover={{ scale: 1.1 }}
                 onClick={(e) => {
                   e.stopPropagation();
+
                   toggleComments(post._id);
                 }}
                 className="flex items-center cursor-pointer gap-1 text-gray-500 hover:text-indigo-500"
@@ -719,7 +727,7 @@ export default function SpecPost() {
                   e.stopPropagation();
                   handleSavePost(post._id);
                 }}
-                className={`cursor-pointer flex items-center gap-1 ${
+                className={`cursor-pointer flex items-center ${
                   saveCounts[post._id] ? "text-green-500" : "text-gray-500"
                 }`}
               >
@@ -728,33 +736,31 @@ export default function SpecPost() {
               </motion.div>
             </div>
 
-            {user?.id === post.author?._id && (
-              <div className="flex gap-4">
-                <motion.button
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigate(`/editPost/${post._id}`);
-                  }}
-                  className="cursor-pointer text-gray-500 hover:text-indigo-600"
-                >
-                  <FaEdit size={20} />
-                </motion.button>
+            <div className="flex gap-4">
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/editPost/${post._id}`);
+                }}
+                className="cursor-pointer text-gray-500 hover:text-indigo-600"
+              >
+                <FaEdit size={20} />
+              </motion.button>
 
-                <motion.button
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeletePost(post._id);
-                  }}
-                  className="cursor-pointer text-gray-500 hover:text-red-600"
-                >
-                  <MdDelete size={20} />
-                </motion.button>
-              </div>
-            )}
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeletePost(post._id);
+                }}
+                className="cursor-pointer text-gray-500 hover:text-red-600"
+              >
+                <MdDelete size={20} />
+              </motion.button>
+            </div>
           </div>
 
           {/* Comments Section */}

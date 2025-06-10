@@ -24,34 +24,36 @@ const Login = () => {
       .required('Password is required'),
   });
 
-  const handleLogin = (formValues) => {
+  const handleLogin = async (formValues) => {
     setIsLoading(true);
+    try {
+      const apiResponse = await axios.post("https://knowledge-sharing-pied.vercel.app/user/login", formValues);
 
+      setApiSuccess(apiResponse?.data?.message);
+      setApiError("");
 
-    axios.post("https://knowledge-sharing-pied.vercel.app/user/login", formValues)
-      .then((apiResponse) => {
-        setApiSuccess(apiResponse?.data?.message);
-        setApiError("");
+      const { token, user } = apiResponse.data;
 
-        const { token, user } = apiResponse.data;
+      const userData = {
+        ...user,
+        token,
+      };
 
-        const userData = {
-          ...user,
-          token,
-        };
+      updateUser(userData);
 
-        updateUser(userData);
-        setTimeout(() => {
-          navigate("/home");
-        }, 2000);
-      })
-      .catch((apiResponse) => {
-        setApiError(apiResponse?.response?.data?.error || apiResponse?.response?.data?.message );
-        setApiSuccess("");
-        setIsLoading(false);
-        toast.error(apiError || apiResponse?.response?.message );
-      });
+      setTimeout(() => {
+        navigate("/home");
+      }, 2000);
+    } catch (error) {
+      const errorMessage = error?.response?.data?.error || "Login failed. Please try again.";
+      setApiError(errorMessage);
+      setApiSuccess("");
+      toast.error(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
   };
+
 
   const formik = useFormik({
     initialValues: {
