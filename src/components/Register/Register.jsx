@@ -61,24 +61,23 @@ const Register = () => {
       .required('Role is required'),
 
     nationalID: Yup.mixed()
-      .test('nationalID-check', '', function (value) {
-        const { role } = this.parent;
-
-        if (role !== 'doctor') return true; // تجاهل تمامًا إذا ليس طبيبًا
-
-        if (!value) {
-          return this.createError({ message: 'National ID مطلوب للأطباء' });
+      .nullable()
+      .when('role', (role, schema) => {
+        if (role === 'doctor') {
+          return schema
+            .required('National ID image is required for doctors')
+            .test(
+              'fileSize',
+              'File too large (max 2MB)',
+              value => value && value.size <= 2 * 1024 * 1024
+            )
+            .test(
+              'fileFormat',
+              'Unsupported Format (use JPG, JPEG, or PNG)',
+              value => value && ['image/jpg', 'image/jpeg', 'image/png'].includes(value.type)
+            );
         }
-
-        if (value.size > 2 * 1024 * 1024) {
-          return this.createError({ message: 'الحد الأقصى لحجم الملف 2MB' });
-        }
-
-        if (!['image/jpg', 'image/jpeg', 'image/png'].includes(value.type)) {
-          return this.createError({ message: 'يجب أن يكون الملف بصيغة JPG, JPEG, أو PNG' });
-        }
-
-        return true;
+        return schema;
       })
 
   });
@@ -87,19 +86,22 @@ const Register = () => {
   const handleRegister = async (values) => {
     try {
       setIsLoading(true);
+      setApiError("");
       const formData = new FormData();
-      formData.append('name', values.name);
-      formData.append('email', values.email);
+
+      // Add text fields
+      formData.append('email', values.email.trim());
+      formData.append('name', values.name.trim());
       formData.append('password', values.password);
       formData.append('confirmPassword', values.confirmPassword);
       formData.append('role', values.role);
 
-      // Only append profileImage if it exists, otherwise use default avatar
+      // Add profile image if exists
       if (values.profileImage) {
         formData.append('profileImage', values.profileImage);
       }
 
-      // Append national ID image for doctors
+      // Only add nationalID for doctors
       if (values.role === 'doctor' && values.nationalID) {
         formData.append('nationalID', values.nationalID);
       }
@@ -113,18 +115,21 @@ const Register = () => {
           }
         }
       );
+
       if (response.data) {
         setApiSuccess(true);
+        toast.success('Registration successful! Redirecting to login...');
         setTimeout(() => {
+          setApiSuccess(false); // optional cleanup
           navigate('/login');
         }, 2000);
       }
     } catch (error) {
-      setApiError(error.response?.data?.message || 'Registration failed');
-      toast.error(apiError || 'Registration failed');
-      console.log(error);
-
-
+      const errorMsg = error.response?.data?.message ||
+        error.message ||
+        'Registration failed. Please try again.';
+      setApiError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setIsLoading(false);
     }
@@ -138,13 +143,8 @@ const Register = () => {
 
   const handleNationalIdChange = (event) => {
     const file = event.currentTarget.files[0];
-    if (formik.values.role === 'doctor') {
-      formik.setFieldValue('nationalID', file);
-      setPreviewNationalId(file ? URL.createObjectURL(file) : null);
-    } else {
-      formik.setFieldValue('nationalID', null);
-      setPreviewNationalId(null);
-    }
+    formik.setFieldValue('nationalID', file);
+    setPreviewNationalId(file ? URL.createObjectURL(file) : null);
   };
 
   const formik = useFormik({
@@ -154,7 +154,7 @@ const Register = () => {
       password: '',
       confirmPassword: '',
       profileImage: null,
-      role: '',
+      role: 'user',
       nationalID: null
     },
     validationSchema,
@@ -580,12 +580,7 @@ const Register = () => {
                         className="text-red-500 text-xs mt-1 ml-1"
                       >
                         {formik.errors.nationalID}
-
-
                       </motion.div>
-                    )}
-                    {formik.values.role !== 'doctor' && (
-                      <input type="hidden" name="nationalID" value={null} />
                     )}
                   </motion.div>
                 )}
@@ -606,6 +601,8 @@ const Register = () => {
                         : 'bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600'
                       }`}
                   >
+
+
                     {apiSuccess ? (
                       <>
                         <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -665,4 +662,4 @@ const Register = () => {
   );
 };
 
-export default Register;
+export default Register; 

@@ -25,6 +25,7 @@ const Profile = () => {
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
 
+
   const [profileData, setProfileData] = useState({
     name: "",
     email: "",
@@ -312,6 +313,39 @@ const Profile = () => {
     };
 
     const errorConfig = getErrorConfig(error);
+
+    const handleMenuToggle = (postId, e) => {
+      e.stopPropagation(); // Prevent triggering the post click
+      setShowPostMenu(showPostMenu === postId ? null : postId);
+    };
+
+    const handleEditPost = (postId) => {
+      setShowPostMenu(null);
+      navigate(`/editPost/${post._id}`);
+    };
+
+    const handleDeletePost = async (postId) => {
+      try {
+        setIsDeletingPost(true);
+        const token = getToken();
+
+        await axios.delete(
+          `https://knowledge-sharing-pied.vercel.app/post/delete/${post._id}`,
+          {
+            headers: { token: token },
+          }
+        );
+
+        // Remove the deleted post from state
+        setPosts(posts.filter(post => post._id !== postId));
+        setSuccessMessage("Post deleted successfully!");
+      } catch (err) {
+        setError(err.response?.data?.message || "Failed to delete post");
+      } finally {
+        setIsDeletingPost(false);
+        setShowPostMenu(null);
+      }
+    };
 
     return (
       <motion.div
@@ -919,6 +953,7 @@ const Profile = () => {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     className="bg-white rounded-xl shadow-sm border border-indigo-100 overflow-hidden hover:shadow-md transition-shadow"
+                    onClick={() => navigate(`/post/${post._id}`)}
                   >
                     <div className="p-6">
                       <div className="flex items-center justify-between mb-4">
