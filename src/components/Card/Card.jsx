@@ -3,28 +3,12 @@ import { SiKnowledgebase } from "react-icons/si";
 import { RiShoppingCartLine } from "react-icons/ri";
 import { TbRobot } from "react-icons/tb";
 import { MdAccessibility } from "react-icons/md";
-import { useNavigate } from "react-router-dom"; // استيراد useNavigate
 
 export default function Card() {
-  const navigate = useNavigate(); // تهيئة دالة navigate
-
-  // دوال لتوجيه المستخدم عند الضغط على البطاقات
-  const goToKnowledgeCorner = () => {
-    navigate("/knowledgecorner");
-  };
-
-  const goToEcommerce = () => {
-    navigate("/ecommerce");
-  };
-
-  const goToChatbot = () => {
-    navigate("/chatbot");
-  };
-
   return (
-    <div className="mb-20">
+    <div className="mb-20 bg-white">
       <div className="flex justify-center ">
-        <h1 className="text-4xl md:text-5xl font-extrabold text-gray-900 tracking-wide border-b-4 border-[#5F85A3] inline-block pb-2">
+        <h1 className="text-4xl md:text-5xl font-extrabold text-gray-900 tracking-wide border-b-4 ] inline-block pb-2">
           We Offer
         </h1>
       </div>
@@ -34,9 +18,8 @@ export default function Card() {
           <div
             className="max-w-sm p-6 bg-white border border-gray-200 rounded-lg shadow-lg 
                         text-center transition-transform duration-300 ease-in-out hover:scale-105 hover:shadow-xl"
-            onClick={goToKnowledgeCorner} // إضافة الحدث
           >
-            <SiKnowledgebase className="text-4xl text-[#5F85A3] mx-auto mb-3" />
+            <SiKnowledgebase className="text-4xl  mx-auto mb-3" />
             <h5 className="mb-2 text-2xl font-semibold text-gray-900">
               Knowledge Sharing
             </h5>
@@ -49,9 +32,8 @@ export default function Card() {
           <div
             className="max-w-sm p-6 bg-white border border-gray-200 rounded-lg shadow-lg 
                         text-center transition-transform duration-300 ease-in-out hover:scale-105 hover:shadow-xl"
-            onClick={goToEcommerce} // إضافة الحدث
           >
-            <RiShoppingCartLine className="text-4xl text-[#5F85A3] mx-auto mb-3" />
+            <RiShoppingCartLine className="text-4xl mx-auto mb-3" />
             <h5 className="mb-2 text-2xl font-semibold text-gray-900">
               E-commerce
             </h5>
@@ -62,9 +44,8 @@ export default function Card() {
           <div
             className="max-w-sm p-6 bg-white border border-gray-200 rounded-lg shadow-lg 
                         text-center transition-transform duration-300 ease-in-out hover:scale-105 hover:shadow-xl"
-            onClick={goToChatbot} // إضافة الحدث
           >
-            <TbRobot className="text-4xl text-[#5F85A3] mx-auto mb-3" />
+            <TbRobot className="text-4xl  mx-auto mb-3" />
             <h5 className="mb-2 text-2xl font-semibold text-gray-900">
               AI Assistance
             </h5>
@@ -77,9 +58,8 @@ export default function Card() {
           <div
             className="max-w-sm p-6 bg-white border border-gray-200 rounded-lg shadow-lg 
                         text-center transition-transform duration-300 ease-in-out hover:scale-105 hover:shadow-xl"
-            onClick={goToKnowledgeCorner} // إضافة الحدث
           >
-            <MdAccessibility className="text-4xl text-[#5F85A3] mx-auto mb-3" />
+            <MdAccessibility className="text-4xl text-black mx-auto mb-3" />
             <h5 className="mb-2 text-2xl font-semibold text-gray-900">
               Accessibility Features
             </h5>
