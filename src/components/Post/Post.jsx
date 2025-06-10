@@ -27,10 +27,10 @@ import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { motion, AnimatePresence } from "framer-motion";
 import { useUser } from "../../Context/UserContext";
-
 export default function Post() {
   const [filteredPosts, setFilteredPosts] = useState([]);
   const [posts, setPosts] = useState([]);
+  const [post, setPost] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isLoadingLike, setIsLoadingLike] = useState(false);
@@ -70,14 +70,15 @@ export default function Post() {
   useEffect(() => {
     const storedLikes = JSON.parse(localStorage.getItem("likes")) || {};
     const storedSaves = JSON.parse(localStorage.getItem("saves")) || {};
+    const storedComments = JSON.parse(localStorage.getItem("comments")) || {};
 
+    setLikeCounts(storedLikes);
+    setSaveCounts(storedSaves);
+    setComments(storedComments);
     // Load initial likes counts
     Object.keys(storedLikes).forEach((postId) => {
       getLikesCount(postId);
     });
-
-    setLikeCounts(storedLikes);
-    setSaveCounts(storedSaves);
 
     // Load saved posts from server
     const loadSavedPosts = async () => {
@@ -119,6 +120,11 @@ export default function Post() {
         "https://knowledge-sharing-pied.vercel.app/post/list"
       );
 
+      // Check if data.posts exists and is an array
+      if (!data.posts || !Array.isArray(data.posts)) {
+        throw new Error("Invalid posts data received from server");
+      }
+
       const processedPosts = data.posts.map((post) => ({
         ...post,
         title: post.title || "Untitled Post",
@@ -126,14 +132,13 @@ export default function Post() {
         files: post.files || { urls: [] },
         sub_category: post.sub_category || null,
         isFlagged: post.isFlagged || false,
-        likes_count: post.likes_count || 0,
       }));
 
       setPosts(processedPosts);
 
-      // Fetch likes count for each post
+      // Fetch likes count for each post using the correct post ID
       processedPosts.forEach((post) => {
-        getLikesCount(post._id);
+        getLikesCount(post._id); // Changed from data.post._id to post._id
       });
 
       setIsLoading(false);
@@ -150,21 +155,53 @@ export default function Post() {
 
   useEffect(() => {
     const loadInitialData = async () => {
-      await getAllPosts();
+      try {
+        await getAllPosts();
 
-      // Load comments for all posts initially
-      const initialComments =
-        JSON.parse(localStorage.getItem("comments")) || {};
-      setComments(initialComments);
+        // Load interactions from localStorage
+        const storedLikes = JSON.parse(localStorage.getItem("likes")) || {};
+        const storedSaves = JSON.parse(localStorage.getItem("saves")) || {};
+        const storedComments =
+          JSON.parse(localStorage.getItem("comments")) || {};
 
-      // Fetch fresh comments for all posts
-      posts.forEach((post) => {
-        fetchComments(post._id);
-      });
+        setLikeCounts(storedLikes);
+        setSaveCounts(storedSaves);
+        setComments(storedComments);
+
+        // Load saved posts from server if user is authenticated
+        if (user?.token) {
+          try {
+            const response = await axios.get(
+              "https://knowledge-sharing-pied.vercel.app/interaction/saved_posts",
+              {
+                headers: {
+                  token: user.token,
+                },
+              }
+            );
+
+            const savedPosts = response.data.savedPosts || [];
+            const savedState = {};
+            savedPosts.forEach((post) => {
+              savedState[post._id] = true;
+            });
+
+            setSaveCounts((prev) => ({ ...prev, ...savedState }));
+            localStorage.setItem(
+              "saves",
+              JSON.stringify({ ...storedSaves, ...savedState })
+            );
+          } catch (error) {
+            console.error("Error loading saved posts:", error);
+          }
+        }
+      } catch (error) {
+        console.error("Error in initial data loading:", error);
+      }
     };
 
     loadInitialData();
-  }, []);
+  }, [user?.token]);
 
   // Filter posts based on category, subcategory and search
   useEffect(() => {
@@ -323,35 +360,36 @@ export default function Post() {
   }, [posts]);
 
   // Get likes count for a post
+
   const getLikesCount = async (postId) => {
     try {
       const response = await axios.get(
         `https://knowledge-sharing-pied.vercel.app/interaction/${postId}/likes_count`
       );
 
-      setLikeCounts((prevCounts) => ({
-        ...prevCounts,
-        [postId]: {
-          count: response.data.likes_count,
-          isLiked: prevCounts[postId]?.isLiked || false,
-        },
-      }));
-    } catch (error) {
-      console.error("Error fetching like count:", error);
+      const storedLikes = JSON.parse(localStorage.getItem("likes")) || {};
+      const isLiked = storedLikes[postId]?.isLiked || false;
 
       setLikeCounts((prevCounts) => ({
         ...prevCounts,
         [postId]: {
-          count: 0,
+          count: response.data.likes_count,
+          isLiked: isLiked,
+        },
+      }));
+    } catch (error) {
+      console.error("Error fetching like count:", error);
+      setLikeCounts((prevCounts) => ({
+        ...prevCounts,
+        [postId]: {
+          count: prevCounts[postId]?.count || 0,
           isLiked: prevCounts[postId]?.isLiked || false,
         },
       }));
     }
   };
 
-  // Handle like post
-  const handleLikePost = async (postId, e) => {
-    e.stopPropagation();
+  const handleLikePost = async (postId) => {
     if (!user) {
       toast.error("Please login to like posts");
       navigate("/login");
@@ -361,16 +399,35 @@ export default function Post() {
     setIsLoadingLike(true);
 
     try {
+      setLikeCounts((prev) => {
+        const newCount = prev[postId]?.isLiked
+          ? prev[postId].count - 1
+          : prev[postId].count + 1;
+
+        const newState = {
+          ...prev,
+          [postId]: {
+            count: newCount,
+            isLiked: !prev[postId]?.isLiked,
+          },
+        };
+
+        // حفظ الحالة في localStorage
+        localStorage.setItem("likes", JSON.stringify(newState));
+        return newState;
+      });
+
+      // إرسال الطلب إلى الخادم
       const response = await axios.post(
         `https://knowledge-sharing-pied.vercel.app/interaction/${postId}/like`,
         {},
-        { headers: { token } }
+        { headers: { token: token } }
       );
 
       setLikeCounts((prev) => ({
         ...prev,
         [postId]: {
-          count: response.data.likes_count,
+          count: response.data.likes_count || prev[postId]?.count,
           isLiked: !prev[postId]?.isLiked,
         },
       }));
@@ -379,6 +436,14 @@ export default function Post() {
     } catch (error) {
       console.error("Like post error:", error);
       toast.error(error.response?.data?.message || "Failed to like post.");
+
+      setLikeCounts((prev) => ({
+        ...prev,
+        [postId]: {
+          count: prev[postId]?.count,
+          isLiked: prev[postId]?.isLiked,
+        },
+      }));
     } finally {
       setIsLoadingLike(false);
     }
@@ -493,13 +558,17 @@ export default function Post() {
         return newComments;
       });
 
+      setPost((prev) => ({
+        ...prev,
+        comments_count: (prev.comments_count || 0) + 1,
+      }));
+
       toast.success("Comment added successfully!");
     } catch (error) {
       console.error("Error adding comment:", error);
       toast.error("Failed to add comment");
     }
   };
-
   // Handle delete comment
   const handleDeleteComment = async (commentId, postId) => {
     if (!user) {
@@ -535,132 +604,148 @@ export default function Post() {
 
   // Enhanced comment design
   const renderComments = (commentsArray, postId, parent = null, depth = 0) => {
-    if (!commentsArray) return null;
+    if (!commentsArray || !Array.isArray(commentsArray)) {
+      return (
+        <div className="text-center py-4 text-gray-500 text-sm">
+          Loading comments...
+        </div>
+      );
+    }
 
-    return commentsArray
-      .filter((c) => c.parent_comment === parent)
-      .map((c) => (
-        <motion.div
-          key={c._id}
-          initial={{ opacity: 0, x: -10 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.3 }}
-          className={`mt-3 ${
-            depth > 0
-              ? "ml-6 pl-4 relative before:absolute before:left-0 before:top-0 before:h-full before:w-0.5 before:bg-gray-200"
-              : ""
-          }`}
-        >
-          <div className="flex gap-3 items-start">
-            <div className="flex-shrink-0">
-              {c.userId?.avatar ? (
-                <img
-                  src={c.userId.avatar}
-                  alt={c.userId.username}
-                  className="w-9 h-9 rounded-full object-cover border-2 border-white shadow-sm"
-                />
-              ) : (
-                <FaUserCircle className="text-gray-400 text-3xl" />
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="bg-gray-50 rounded-xl p-3 relative group">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <span className="text-sm font-semibold text-gray-900">
-                      {c.userId?.username || "Anonymous"}
-                    </span>
-                    <span className="text-xs text-gray-500 ml-2">
-                      {new Date(c.createdAt).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </span>
-                  </div>
+    const filteredComments = commentsArray.filter(
+      (c) => String(c.parent_comment) === String(parent)
+    );
 
-                  {user?.id === c.userId?._id && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteComment(c._id, postId);
-                      }}
-                      className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                      title="Delete comment"
-                    >
-                      <FaTrash size={14} />
-                    </button>
-                  )}
+    if (filteredComments.length === 0 && depth === 0) {
+      return (
+        <div className="text-center py-4 text-gray-500 text-sm">
+          No comments yet. Be the first to comment!
+        </div>
+      );
+    }
+
+    return filteredComments.map((comment) => (
+      <motion.div
+        key={comment._id}
+        initial={{ opacity: 0, x: -10 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.3 }}
+        className={`mt-3 ${
+          depth > 0
+            ? "ml-6 pl-4 relative before:absolute before:left-0 before:top-0 before:h-full before:w-0.5 before:bg-gray-200"
+            : ""
+        }`}
+      >
+        <div className="flex gap-3 items-start">
+          <div className="flex-shrink-0">
+            {comment.author?.avatar ? (
+              <img
+                src={comment.author.avatar}
+                alt={comment.author.name}
+                className="w-8 h-8 rounded-full object-cover"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-medium text-sm">
+                {comment.author?.name?.charAt(0) || "U"}
+              </div>
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="bg-gray-50 rounded-xl p-3 relative group">
+              <div className="flex items-start justify-between">
+                <div>
+                  <span className="text-sm font-semibold text-gray-900">
+                    {comment.author?.name || "Anonymous"}
+                  </span>
+                  <span className="text-xs text-gray-500 ml-2">
+                    {new Date(comment.createdAt).toLocaleString([], {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
                 </div>
 
-                <p className="text-sm text-gray-700 mt-1">{c.text}</p>
-
-                <div className="flex items-center mt-2 space-x-3">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setParentId(parentId === c._id ? null : c._id);
-                    }}
-                    className="text-xs flex items-center text-gray-500 hover:text-blue-600 transition-colors"
-                  >
-                    <FaReply className="mr-1" size={12} />
-                    Reply
-                  </button>
-                </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteComment(comment._id, postId);
+                  }}
+                  className="text-gray-400 hover:text-red-500 transition-colors"
+                  title="Delete comment"
+                >
+                  <FaTrash size={14} />
+                </button>
               </div>
 
-              {/* Reply form */}
-              {parentId === c._id && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="mt-3"
+              <p className="text-sm text-gray-700 mt-1">{comment.text}</p>
+
+              <div className="flex items-center mt-2 space-x-3">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setParentId(parentId === comment._id ? null : comment._id);
+                  }}
+                  className="text-xs flex items-center text-gray-500 hover:text-blue-600 transition-colors"
                 >
-                  <form
-                    onSubmit={(e) => {
-                      e.stopPropagation();
-                      handleAddComment(e, postId);
-                    }}
-                    className="flex gap-2 items-center"
-                  >
-                    {user?.avatar ? (
-                      <img
-                        src={user.avatar}
-                        alt={user.username}
-                        className="w-8 h-8 rounded-full object-cover flex-shrink-0"
-                      />
-                    ) : (
-                      <FaUserCircle className="text-gray-400 text-2xl flex-shrink-0" />
-                    )}
-                    <input
-                      type="text"
-                      value={text}
-                      onChange={(e) => setText(e.target.value)}
-                      placeholder={`Reply to ${
-                        c.userId?.username || "this comment"
-                      }...`}
-                      className="flex-1 text-sm border border-gray-200 rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-300 bg-white"
-                      autoFocus
-                    />
-                    <button
-                      type="submit"
-                      className="bg-blue-500 text-white px-3 py-2 rounded-full text-sm hover:bg-blue-600 transition-colors flex-shrink-0"
-                      disabled={!text.trim()}
-                    >
-                      Post
-                    </button>
-                  </form>
-                </motion.div>
-              )}
-
-              {/* Nested comments */}
-              {renderComments(commentsArray, postId, c._id, depth + 1)}
+                  <FaReply className="mr-1" size={12} />
+                  Reply
+                </button>
+              </div>
             </div>
-          </div>
-        </motion.div>
-      ));
-  };
 
+            {parentId === comment._id && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mt-3"
+              >
+                <form
+                  onSubmit={(e) => {
+                    e.stopPropagation();
+                    handleAddComment(e, postId);
+                  }}
+                  className="flex gap-2 items-center"
+                >
+                  {user?.avatar ? (
+                    <img
+                      src={user.avatar}
+                      alt={user.username}
+                      className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                    />
+                  ) : (
+                    <FaUserCircle className="text-gray-400 text-2xl flex-shrink-0" />
+                  )}
+                  <input
+                    type="text"
+                    value={text}
+                    onChange={(e) => setText(e.target.value)}
+                    placeholder={`Reply to ${
+                      comment.author?.name || "this comment"
+                    }...`}
+                    className="flex-1 text-sm border border-gray-200 rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-300 bg-white"
+                    autoFocus
+                  />
+                  <button
+                    type="submit"
+                    className="bg-blue-500 text-white px-3 py-2 rounded-full text-sm hover:bg-blue-600 transition-colors flex-shrink-0"
+                    disabled={!text.trim()}
+                  >
+                    Post
+                  </button>
+                </form>
+              </motion.div>
+            )}
+
+            {renderComments(commentsArray, postId, comment._id, depth + 1)}
+          </div>
+        </div>
+      </motion.div>
+    ));
+  };
   // Post options dropdown
   const PostOptions = ({ post }) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -959,21 +1044,33 @@ export default function Post() {
 
                       <div className="flex items-center justify-between pt-3 border-t border-gray-100">
                         <div className="flex items-center space-x-4">
-                          <div
-                            onClick={(e) => handleLikePost(post._id, e)}
+                          {/* Like */}
+                          <motion.div
+                            whileTap={{ scale: 0.9 }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleLikePost(post._id);
+                            }}
                             className={`flex cursor-pointer items-center gap-1 ${
                               likeCounts[post._id]?.isLiked
-                                ? "text-blue-500"
+                                ? "text-indigo-500"
                                 : "text-gray-500"
                             }`}
-                            title="Like"
                           >
-                            <BiSolidLike />
-                            <span className="text-black ml-1">
-                              {likeCounts[post._id]?.count ?? 0}
+                            <motion.div
+                              animate={{
+                                scale: likeCounts[post._id]?.isLiked
+                                  ? [1, 1.3, 1]
+                                  : 1,
+                                transition: { duration: 0.3 },
+                              }}
+                            >
+                              <BiSolidLike className="text-xl" />
+                            </motion.div>
+                            <span className="text-sm">
+                              {likeCounts[post._id]?.count || 0}
                             </span>
-                          </div>
-
+                          </motion.div>
                           <div
                             onClick={(e) => {
                               e.stopPropagation();
@@ -1002,29 +1099,31 @@ export default function Post() {
                         </div>
 
                         <div className="flex gap-2">
-                          <>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                navigate(`/editPost/${post._id}`);
-                              }}
-                              className="cursor-pointer text-gray-500 hover:text-blue-800"
-                              title="Edit"
-                            >
-                              <FaEdit size={20} />
-                            </button>
+                          {user?.id === post.author?._id && (
+                            <>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(`/editPost/${post._id}`);
+                                }}
+                                className="cursor-pointer text-gray-500 hover:text-blue-800"
+                                title="Edit"
+                              >
+                                <FaEdit size={20} />
+                              </button>
 
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeletePost(post._id);
-                              }}
-                              className="cursor-pointer text-gray-500 hover:text-red-800"
-                              title="Delete"
-                            >
-                              <MdDelete size={20} />
-                            </button>
-                          </>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeletePost(post._id);
+                                }}
+                                className="cursor-pointer text-gray-500 hover:text-red-800"
+                                title="Delete"
+                              >
+                                <MdDelete size={20} />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </div>
 

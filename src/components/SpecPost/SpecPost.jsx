@@ -39,7 +39,7 @@ export default function SpecPost() {
   const [comments, setComments] = useState({});
   const [text, setText] = useState("");
   const [parentId, setParentId] = useState(null);
-  const [showComments, setShowComments] = useState(false);
+  const [showComments, setShowComments] = useState({});
   const recognitionRef = useRef(null);
   const [isListening, setIsListening] = useState(false);
   const { user } = useUser();
@@ -49,10 +49,13 @@ export default function SpecPost() {
   useEffect(() => {
     const storedLikes = JSON.parse(localStorage.getItem("likes")) || {};
     const storedSaves = JSON.parse(localStorage.getItem("saves")) || {};
+    const storedShowComments =
+      JSON.parse(localStorage.getItem("showComments")) || {};
     const storedComments = JSON.parse(localStorage.getItem("comments")) || {};
 
     setLikeCounts(storedLikes);
     setSaveCounts(storedSaves);
+    setShowComments(storedShowComments);
     setComments(storedComments);
 
     // Load saved posts from server if user is logged in
@@ -88,6 +91,12 @@ export default function SpecPost() {
     loadSavedPosts();
   }, [token]);
 
+  // Save showComments state to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem("showComments", JSON.stringify(showComments));
+    localStorage.setItem("comments", JSON.stringify(comments));
+  }, [showComments, comments]);
+
   // Fetch specific post
   const fetchPost = async () => {
     try {
@@ -95,7 +104,14 @@ export default function SpecPost() {
         `https://knowledge-sharing-pied.vercel.app/post/list_specific/${id}`
       );
       setPost(data.post);
-      fetchComments(data.post._id);
+
+      // Fetch comments if they were shown before refresh
+      const savedShowComments =
+        JSON.parse(localStorage.getItem("showComments")) || {};
+      if (savedShowComments[data.post._id]) {
+        await fetchComments(data.post._id);
+      }
+
       getLikesCount(data.post._id);
     } catch (error) {
       console.error("Error fetching post:", error);
@@ -109,6 +125,17 @@ export default function SpecPost() {
     fetchPost();
   }, [id]);
 
+  // Fetch comments when post changes
+  useEffect(() => {
+    if (post?._id) {
+      const savedShowComments =
+        JSON.parse(localStorage.getItem("showComments")) || {};
+      if (savedShowComments[post._id]) {
+        fetchComments(post._id);
+      }
+    }
+  }, [post?._id]);
+
   // Handle delete post
   const handleDeletePost = async (postId) => {
     try {
@@ -116,7 +143,7 @@ export default function SpecPost() {
         `https://knowledge-sharing-pied.vercel.app/post/delete/${postId}`,
         {
           headers: {
-            token: `noteApp__${token}`,
+            token: token,
           },
         }
       );
@@ -142,7 +169,7 @@ export default function SpecPost() {
       const response = await axios.post(
         `https://knowledge-sharing-pied.vercel.app/interaction/${postId}/like`,
         {},
-        { headers: { token: `noteApp__${token}` } }
+        { headers: { token: token } }
       );
 
       setLikeCounts((prev) => ({
@@ -188,7 +215,7 @@ export default function SpecPost() {
         {},
         {
           headers: {
-            token: `noteApp__${token}`,
+            token: token,
           },
         }
       );
@@ -254,32 +281,55 @@ export default function SpecPost() {
     }
   };
 
-  // Comments functions
-  const toggleComments = async () => {
-    setShowComments(!showComments);
-    if (!comments[post?._id] || comments[post?._id].length === 0) {
-      await fetchComments(post?._id);
-    }
-  };
-
+  // Fetch comments for a post
   const fetchComments = async (postId) => {
     try {
       const res = await axios.get(
         `https://knowledge-sharing-pied.vercel.app/comment/${postId}/get`
       );
 
+      const fetchedComments = res.data || [];
+
       setComments((prev) => {
         const newComments = {
           ...prev,
-          [postId]: res.data.comments || [],
+          [postId]: fetchedComments,
         };
         localStorage.setItem("comments", JSON.stringify(newComments));
         return newComments;
       });
+
+      if (post && post._id === postId) {
+        setPost((prev) => ({
+          ...prev,
+          comments_count: fetchedComments.length,
+        }));
+      }
     } catch (error) {
       console.error("Error fetching comments:", error);
+      toast.error("Failed to load comments");
     }
   };
+
+  // Toggle comments visibility
+
+  const toggleComments = async (postId) => {
+    const shouldShow = !showComments[postId];
+    setShowComments((prev) => ({
+      ...prev,
+      [postId]: shouldShow,
+    }));
+
+    if (shouldShow) {
+      try {
+        await fetchComments(postId);
+      } catch (error) {
+        console.error("Error fetching comments:", error);
+      }
+    }
+  };
+
+  // Handle add comment
 
   const handleAddComment = async (e, postId) => {
     e.preventDefault();
@@ -299,7 +349,7 @@ export default function SpecPost() {
         },
         {
           headers: {
-            token: `noteApp__${token}`,
+            token: token,
           },
         }
       );
@@ -316,13 +366,17 @@ export default function SpecPost() {
         return newComments;
       });
 
+      setPost((prev) => ({
+        ...prev,
+        comments_count: (prev.comments_count || 0) + 1,
+      }));
+
       toast.success("Comment added successfully!");
     } catch (error) {
       console.error("Error adding comment:", error);
       toast.error("Failed to add comment");
     }
   };
-
   // Handle delete comment
   const handleDeleteComment = async (commentId, postId) => {
     if (!user) {
@@ -334,11 +388,12 @@ export default function SpecPost() {
         `https://knowledge-sharing-pied.vercel.app/comment/${commentId}/delete`,
         {
           headers: {
-            token: `noteApp__${token}`,
+            token: token,
           },
         }
       );
 
+      // Update comments state
       setComments((prev) => {
         const updatedComments = {
           ...prev,
@@ -355,132 +410,150 @@ export default function SpecPost() {
     }
   };
 
-  // Render comments with nesting
-  const renderComments = (commentsArray, parent = null, depth = 0) => {
-    if (!commentsArray) return null;
+  // Render comments with nested replies
 
-    return commentsArray
-      .filter((c) => c.parent_comment === parent)
-      .map((c) => (
-        <motion.div
-          key={c._id}
-          initial={{ opacity: 0, x: -10 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.3 }}
-          className={`mt-3 ${
-            depth > 0
-              ? "ml-6 pl-4 relative before:absolute before:left-0 before:top-0 before:h-full before:w-0.5 before:bg-gray-200"
-              : ""
-          }`}
-        >
-          <div className="flex gap-3 items-start">
-            <div className="flex-shrink-0">
-              {c.userId?.avatar ? (
-                <img
-                  src={c.userId.avatar}
-                  alt={c.userId.username}
-                  className="w-9 h-9 rounded-full object-cover border-2 border-white shadow-sm"
-                />
-              ) : (
-                <FaUserCircle className="text-gray-400 text-3xl" />
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="bg-gray-50 rounded-xl p-3 relative group">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <span className="text-sm font-semibold text-gray-900">
-                      {c.userId?.username || "Anonymous"}
-                    </span>
-                    <span className="text-xs text-gray-500 ml-2">
-                      {new Date(c.createdAt).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </span>
-                  </div>
+  const renderComments = (commentsArray, postId, parent = null, depth = 0) => {
+    if (!commentsArray || !Array.isArray(commentsArray)) {
+      return (
+        <div className="text-center py-4 text-gray-500 text-sm">
+          Loading comments...
+        </div>
+      );
+    }
 
-                  {user?.id === c.userId?._id && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteComment(c._id, post._id);
-                      }}
-                      className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                      title="Delete comment"
-                    >
-                      <FaTrash size={14} />
-                    </button>
-                  )}
+    const filteredComments = commentsArray.filter(
+      (c) => String(c.parent_comment) === String(parent)
+    );
+
+    if (filteredComments.length === 0 && depth === 0) {
+      return (
+        <div className="text-center py-4 text-gray-500 text-sm">
+          No comments yet. Be the first to comment!
+        </div>
+      );
+    }
+
+    return filteredComments.map((comment) => (
+      <motion.div
+        key={comment._id}
+        initial={{ opacity: 0, x: -10 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.3 }}
+        className={`mt-3 ${
+          depth > 0
+            ? "ml-6 pl-4 relative before:absolute before:left-0 before:top-0 before:h-full before:w-0.5 before:bg-gray-200"
+            : ""
+        }`}
+      >
+        <div className="flex gap-3 items-start">
+          <div className="flex-shrink-0">
+            {comment.author?.avatar ? (
+              <img
+                src={comment.author.avatar}
+                alt={comment.author.name}
+                className="w-8 h-8 rounded-full object-cover"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-medium text-sm">
+                {comment.author?.name?.charAt(0) || "U"}
+              </div>
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="bg-gray-50 rounded-xl p-3 relative group">
+              <div className="flex items-start justify-between">
+                <div>
+                  <span className="text-sm font-semibold text-gray-900">
+                    {comment.author?.name || "Anonymous"}
+                  </span>
+                  <span className="text-xs text-gray-500 ml-2">
+                    {new Date(comment.createdAt).toLocaleString([], {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
                 </div>
 
-                <p className="text-sm text-gray-700 mt-1">{c.text}</p>
-
-                <div className="flex items-center mt-2 space-x-3">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setParentId(parentId === c._id ? null : c._id);
-                    }}
-                    className="text-xs flex items-center text-gray-500 hover:text-blue-600 transition-colors"
-                  >
-                    <FaReply className="mr-1" size={12} />
-                    Reply
-                  </button>
-                </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteComment(comment._id, postId);
+                  }}
+                  className="text-gray-400 hover:text-red-500 transition-colors"
+                  title="Delete comment"
+                >
+                  <FaTrash size={14} />
+                </button>
               </div>
 
-              {/* Reply form */}
-              {parentId === c._id && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="mt-3"
-                >
-                  <form
-                    onSubmit={(e) => {
-                      e.stopPropagation();
-                      handleAddComment(e, post._id);
-                    }}
-                    className="flex gap-2 items-center"
-                  >
-                    {user?.avatar ? (
-                      <img
-                        src={user.avatar}
-                        alt={user.username}
-                        className="w-8 h-8 rounded-full object-cover flex-shrink-0"
-                      />
-                    ) : (
-                      <FaUserCircle className="text-gray-400 text-2xl flex-shrink-0" />
-                    )}
-                    <input
-                      type="text"
-                      value={text}
-                      onChange={(e) => setText(e.target.value)}
-                      placeholder={`Reply to ${
-                        c.userId?.username || "this comment"
-                      }...`}
-                      className="flex-1 text-sm border border-gray-200 rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-300 bg-white"
-                      autoFocus
-                    />
-                    <button
-                      type="submit"
-                      className="bg-blue-500 text-white px-3 py-2 rounded-full text-sm hover:bg-blue-600 transition-colors flex-shrink-0"
-                      disabled={!text.trim()}
-                    >
-                      Post
-                    </button>
-                  </form>
-                </motion.div>
-              )}
+              <p className="text-sm text-gray-700 mt-1">{comment.text}</p>
 
-              {/* Nested comments */}
-              {renderComments(commentsArray, c._id, depth + 1)}
+              <div className="flex items-center mt-2 space-x-3">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setParentId(parentId === comment._id ? null : comment._id);
+                  }}
+                  className="text-xs flex items-center text-gray-500 hover:text-blue-600 transition-colors"
+                >
+                  <FaReply className="mr-1" size={12} />
+                  Reply
+                </button>
+              </div>
             </div>
+
+            {parentId === comment._id && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mt-3"
+              >
+                <form
+                  onSubmit={(e) => {
+                    e.stopPropagation();
+                    handleAddComment(e, postId);
+                  }}
+                  className="flex gap-2 items-center"
+                >
+                  {user?.avatar ? (
+                    <img
+                      src={user.avatar}
+                      alt={user.username}
+                      className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                    />
+                  ) : (
+                    <FaUserCircle className="text-gray-400 text-2xl flex-shrink-0" />
+                  )}
+                  <input
+                    type="text"
+                    value={text}
+                    onChange={(e) => setText(e.target.value)}
+                    placeholder={`Reply to ${
+                      comment.author?.name || "this comment"
+                    }...`}
+                    className="flex-1 text-sm border border-gray-200 rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-300 bg-white"
+                    autoFocus
+                  />
+                  <button
+                    type="submit"
+                    className="bg-blue-500 text-white px-3 py-2 rounded-full text-sm hover:bg-blue-600 transition-colors flex-shrink-0"
+                    disabled={!text.trim()}
+                  >
+                    Post
+                  </button>
+                </form>
+              </motion.div>
+            )}
+
+            {renderComments(commentsArray, postId, comment._id, depth + 1)}
           </div>
-        </motion.div>
-      ));
+        </div>
+      </motion.div>
+    ));
   };
 
   // Loading state
@@ -629,13 +702,13 @@ export default function SpecPost() {
                 whileHover={{ scale: 1.1 }}
                 onClick={(e) => {
                   e.stopPropagation();
-                  toggleComments();
+                  toggleComments(post._id);
                 }}
                 className="flex items-center cursor-pointer gap-1 text-gray-500 hover:text-indigo-500"
               >
                 <FaRegCommentDots className="text-xl" />
                 <span className="text-sm">
-                  {comments[post._id]?.length || 0}
+                  {post.comments_count || comments[post._id]?.length || 0}
                 </span>
               </motion.div>
 
@@ -686,7 +759,7 @@ export default function SpecPost() {
 
           {/* Comments Section */}
           <AnimatePresence>
-            {showComments && (
+            {showComments[post._id] && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
@@ -731,8 +804,8 @@ export default function SpecPost() {
                   </form>
 
                   <div className="mb-4">
-                    {comments[post._id]?.length > 0 ? (
-                      renderComments(comments[post._id])
+                    {comments[post._id] && comments[post._id].length > 0 ? (
+                      renderComments(comments[post._id], post._id)
                     ) : (
                       <div className="text-center py-4 text-gray-500 text-sm">
                         No comments yet. Be the first to comment!
