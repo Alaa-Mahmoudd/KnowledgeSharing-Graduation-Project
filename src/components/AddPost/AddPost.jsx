@@ -278,10 +278,11 @@ export default function AddPost() {
           <motion.button
             type="submit"
             disabled={isLoading}
-            className={`flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white font-semibold px-8 py-3 rounded-lg shadow-md ${isLoading
-              ? "opacity-80 cursor-not-allowed"
-              : "hover:shadow-lg hover:from-blue-700 hover:to-blue-600"
-              }`}
+            className={`flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white font-semibold px-8 py-3 rounded-lg shadow-md ${
+              isLoading
+                ? "opacity-80 cursor-not-allowed"
+                : "hover:shadow-lg hover:from-blue-700 hover:to-blue-600"
+            }`}
             whileHover={!isLoading ? { scale: 1.03, y: -2 } : {}}
             whileTap={!isLoading ? { scale: 0.98 } : {}}
           >

@@ -69,7 +69,6 @@ export default function Shop() {
     },
   };
 
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white py-12 mt-10">
       {loading ? (
@@ -118,14 +117,7 @@ export default function Shop() {
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     className="absolute top-2 right-2 flex space-x-2"
-                  >
-                    <button className="bg-white p-2 rounded-full shadow-md hover:bg-gray-100 transition-colors">
-                      <FaHeart className="text-gray-600 hover:text-red-500" />
-                    </button>
-                    <button className="bg-white p-2 rounded-full shadow-md hover:bg-gray-100 transition-colors">
-                      <FaShoppingCart className="text-gray-600 hover:text-blue-500" />
-                    </button>
-                  </motion.div>
+                  ></motion.div>
                 )}
               </div>
               <div className="p-6 flex flex-col h-64">
@@ -148,9 +140,6 @@ export default function Shop() {
                 </p>
                 <div className="mt-auto">
                   <div className="flex justify-between items-center mb-4">
-                    <p className="text-xl font-bold text-indigo-600">
-                      ${product.price || "N/A"}
-                    </p>
                     {product.originalPrice && (
                       <p className="text-sm text-gray-400 line-through">
                         ${product.originalPrice}

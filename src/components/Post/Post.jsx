@@ -70,6 +70,7 @@ export default function Post() {
   useEffect(() => {
     const storedLikes = JSON.parse(localStorage.getItem("likes")) || {};
     const storedSaves = JSON.parse(localStorage.getItem("saves")) || {};
+
     const storedComments = JSON.parse(localStorage.getItem("comments")) || {};
 
     setLikeCounts(storedLikes);
@@ -120,6 +121,7 @@ export default function Post() {
         "https://knowledge-sharing-pied.vercel.app/post/list"
       );
 
+
       // Check if data.posts exists and is an array
       if (!data.posts || !Array.isArray(data.posts)) {
         throw new Error("Invalid posts data received from server");
@@ -132,13 +134,16 @@ export default function Post() {
         files: post.files || { urls: [] },
         sub_category: post.sub_category || null,
         isFlagged: post.isFlagged || false,
+
       }));
 
       setPosts(processedPosts);
 
+
       // Fetch likes count for each post using the correct post ID
       processedPosts.forEach((post) => {
         getLikesCount(post._id); // Changed from data.post._id to post._id
+
       });
 
       setIsLoading(false);
@@ -152,6 +157,7 @@ export default function Post() {
   useEffect(() => {
     getAllPosts();
   }, []);
+
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -361,35 +367,44 @@ export default function Post() {
 
   // Get likes count for a post
 
+
   const getLikesCount = async (postId) => {
     try {
       const response = await axios.get(
         `https://knowledge-sharing-pied.vercel.app/interaction/${postId}/likes_count`
       );
 
+
       const storedLikes = JSON.parse(localStorage.getItem("likes")) || {};
       const isLiked = storedLikes[postId]?.isLiked || false;
+
 
       setLikeCounts((prevCounts) => ({
         ...prevCounts,
         [postId]: {
           count: response.data.likes_count,
+
           isLiked: isLiked,
+
         },
       }));
     } catch (error) {
       console.error("Error fetching like count:", error);
+
       setLikeCounts((prevCounts) => ({
         ...prevCounts,
         [postId]: {
           count: prevCounts[postId]?.count || 0,
+
           isLiked: prevCounts[postId]?.isLiked || false,
         },
       }));
     }
   };
 
+
   const handleLikePost = async (postId) => {
+
     if (!user) {
       toast.error("Please login to like posts");
       navigate("/login");
@@ -399,6 +414,7 @@ export default function Post() {
     setIsLoadingLike(true);
 
     try {
+
       setLikeCounts((prev) => {
         const newCount = prev[postId]?.isLiked
           ? prev[postId].count - 1
@@ -422,12 +438,15 @@ export default function Post() {
         `https://knowledge-sharing-pied.vercel.app/interaction/${postId}/like`,
         {},
         { headers: { token: token } }
+
       );
 
       setLikeCounts((prev) => ({
         ...prev,
         [postId]: {
+
           count: response.data.likes_count || prev[postId]?.count,
+
           isLiked: !prev[postId]?.isLiked,
         },
       }));
@@ -436,6 +455,7 @@ export default function Post() {
     } catch (error) {
       console.error("Like post error:", error);
       toast.error(error.response?.data?.message || "Failed to like post.");
+
 
       setLikeCounts((prev) => ({
         ...prev,
@@ -695,6 +715,7 @@ export default function Post() {
               </div>
             </div>
 
+
             {parentId === comment._id && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
@@ -896,10 +917,11 @@ export default function Post() {
                   e.stopPropagation();
                   handleVoiceSearch();
                 }}
-                className={`p-2.5 rounded-lg ${isListening
-                  ? "bg-red-100 text-red-500 shadow-sm"
-                  : "text-gray-500 hover:text-indigo-600 bg-gray-50 hover:bg-gray-100"
-                  }`}
+                className={`p-2.5 rounded-lg ${
+                  isListening
+                    ? "bg-red-100 text-red-500 shadow-sm"
+                    : "text-gray-500 hover:text-indigo-600 bg-gray-50 hover:bg-gray-100"
+                }`}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
@@ -962,8 +984,9 @@ export default function Post() {
                     )}
 
                     <div
-                      className={`${post.thumbnail ? "md:w-3/5" : "w-full"
-                        } p-5`}
+                      className={`${
+                        post.thumbnail ? "md:w-3/5" : "w-full"
+                      } p-5`}
                     >
                       <div
                         className="flex items-center mb-3 cursor-pointer"
@@ -1049,6 +1072,7 @@ export default function Post() {
 
                       <div className="flex items-center justify-between pt-3 border-t border-gray-100">
                         <div className="flex items-center space-x-4">
+
                           {/* Like */}
                           <motion.div
                             whileTap={{ scale: 0.9 }}
@@ -1073,6 +1097,7 @@ export default function Post() {
                             </motion.div>
                             <span className="text-sm">
                               {likeCounts[post._id]?.count || 0}
+
                             </span>
                           </motion.div>
                           <div
@@ -1090,8 +1115,9 @@ export default function Post() {
                           </div>
                           <div
                             onClick={(e) => handleSavePost(post._id, e)}
-                            className={`cursor-pointer flex items-center gap-1 ${saveCounts[post._id] ? "text-green-500" : ""
-                              }`}
+                            className={`cursor-pointer flex items-center gap-1 ${
+                              saveCounts[post._id] ? "text-green-500" : ""
+                            }`}
                             title="Save"
                           >
                             <FaBookmark />
